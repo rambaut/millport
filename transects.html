@@ -48,6 +48,10 @@
     <div class="toolbar d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center">
             <h4 class="mb-0 me-3">Transect Data Entry</h4>
+            <div class="d-flex align-items-center me-3">
+                <label for="teamName" class="me-2 mb-0">Team:</label>
+                <input type="text" id="teamName" class="form-control form-control-sm" style="width: 150px;" placeholder="Team name">
+            </div>
             <div class="d-flex align-items-center">
                 <label for="chartDatum" class="me-2 mb-0">Chart datum:</label>
                 <input type="number" id="chartDatum" class="form-control form-control-sm" style="width: 100px;" step="0.01" value="0" placeholder="0.0">
@@ -97,6 +101,7 @@
 const NUM_DATA_COLS = 10;
 let dataCols, dataRows;
 let chartDatum = 0;
+let teamName = '';
 
 // --- Helper functions ---
 function getInitialCols() {
@@ -121,7 +126,8 @@ function saveToStorage() {
     const payload = {
         dataCols,
         dataRows,
-        chartDatum
+        chartDatum,
+        teamName
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
@@ -134,7 +140,9 @@ function loadFromStorage() {
         dataCols = parsed.dataCols;
         dataRows = parsed.dataRows;
         chartDatum = parsed.chartDatum || 0;
+        teamName = parsed.teamName || '';
         document.getElementById('chartDatum').value = chartDatum;
+        document.getElementById('teamName').value = teamName;
         return true;
     } catch {
         return false;
@@ -222,6 +230,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     let colIdx = 0;
     const colLabels = [];
     const datumOffset = parseFloat(document.getElementById('chartDatum').value) || 0;
+    const plotTitle = document.getElementById('teamName').value.trim() || 'Kite Diagrams by Column';
     // Find all columns with labels
     for (let i = 0; i < dataCols.length; ++i) {
         const label = dataCols[i].label.trim();
@@ -324,10 +333,9 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     // Left-justify the plot by setting xaxis range to start at -0.5 and minimal left margin
     const n = colLabels.length;
     Plotly.newPlot('plotPane', traces, {
-        title: 'Kite Diagrams by Column',
+        title: plotTitle,
         yaxis: { title: 'Height (m)' },
         xaxis: {
-            title: 'Column',
             tickvals: colLabels.map((_, i) => i),
             ticktext: colLabels,
             tickangle: -45,
@@ -442,6 +450,12 @@ document.getElementById('addRowBtn').addEventListener('click', function() {
 // Chart datum change handler
 document.getElementById('chartDatum').addEventListener('change', function() {
     chartDatum = parseFloat(this.value) || 0;
+    saveToStorage();
+});
+
+// Team name change handler
+document.getElementById('teamName').addEventListener('input', function() {
+    teamName = this.value;
     saveToStorage();
 });
 
