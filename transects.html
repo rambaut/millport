@@ -84,11 +84,9 @@
             </tbody>
         </table>
     </div>
-    <div class="mt-2 d-flex">
-        <button id="addRowBtn" class="btn btn-primary">Add Row</button>
-    </div>
     <div class="mt-4">
-        <button id="plotDataBtn" class="btn btn-success mb-2">Plot Data</button>
+        <button id="plotDataBtn" class="btn btn-success mb-2 me-2">Plot Data</button>
+        <button id="addRowBtn" class="btn btn-primary mb-2">Add Row</button>
         <div id="plotPane" class="border bg-white w-100" style="height: 350px; color: #aaa;">
             <span>Plot will appear here.</span>
         </div>
@@ -105,9 +103,12 @@ let teamName = '';
 
 // --- Helper functions ---
 function getInitialCols() {
-    return Array.from({length: NUM_DATA_COLS}, () => ({
+    // Wes Anderson themed color palette
+    const colors = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C', '#FAD77B', '#4A7C59'];
+    return Array.from({length: NUM_DATA_COLS}, (_, i) => ({
         label: '',
-        type: 'count'
+        type: 'count',
+        color: colors[i]
     }));
 }
 function getInitialRows() {
@@ -141,6 +142,13 @@ function loadFromStorage() {
         dataRows = parsed.dataRows;
         chartDatum = parsed.chartDatum || 0;
         teamName = parsed.teamName || '';
+        // Ensure colors exist (for backwards compatibility)
+        const colors = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C', '#FAD77B', '#4A7C59'];
+        dataCols.forEach((col, i) => {
+            if (!col.color) {
+                col.color = colors[i];
+            }
+        });
         document.getElementById('chartDatum').value = chartDatum;
         document.getElementById('teamName').value = teamName;
         return true;
@@ -203,7 +211,9 @@ function importFromCSV(file) {
             dataCols = getInitialCols();
             for (let i = 2; i < headers.length && i - 2 < NUM_DATA_COLS; i++) {
                 dataCols[i - 2].label = headers[i] || '';
-                dataCols[i - 2].type = types[i] || 'count';
+                const importedType = (types[i] || 'count').toLowerCase();
+                // Normalize type to match dropdown values
+                dataCols[i - 2].type = importedType === '% cover' || importedType.includes('cover') ? '% cover' : 'count';
             }
             // Parse data rows
             dataRows = [];
@@ -223,7 +233,6 @@ function importFromCSV(file) {
             renderTable();
             saveToStorage();
             clearPlot();
-            alert('Data imported successfully!');
             // Auto-plot the imported data
             document.getElementById('plotDataBtn').click();
         } catch (err) {
@@ -270,7 +279,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
             const xCenter = plotIdx;
             const maxVal = Math.max(...sortedValues);
             const scale = maxVal > 0 ? 0.4 / maxVal : 0.4;
-            if (colType === 'Count') {
+            if (colType === 'count') {
                 // Plot as horizontal bars (no smoothing)
                 const xBarRight = sortedValues.map(v => xCenter + v * scale);
                 const xBarLeft = sortedValues.map(v => xCenter - v * scale);
@@ -281,7 +290,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                     y: [].concat(...yWithDatum.map((h, idx) => [h, h, null])),
                     mode: 'lines',
                     name: label,
-                    line: { shape: 'linear', width: 6 },
+                    line: { shape: 'linear', width: 6, color: dataCols[i].color },
                     hoverinfo: 'skip',
                     showlegend: true,
                     opacity: 0.7
@@ -292,7 +301,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                     x: xBarRight,
                     y: yWithDatum,
                     mode: 'markers',
-                    marker: { size: 6 },
+                    marker: { size: 6, color: dataCols[i].color },
                     name: label + ' points',
                     showlegend: false,
                     hovertemplate: 'Height (m): %{y}<br>Value: %{customdata}',
@@ -313,7 +322,8 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                     fill: 'toself',
                     name: label,
                     mode: 'lines',
-                    line: { shape: 'spline' },
+                    line: { shape: 'spline', color: dataCols[i].color },
+                    fillcolor: dataCols[i].color + '66',
                     hoverinfo: 'skip',
                     showlegend: true,
                     opacity: 0.7
@@ -324,7 +334,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                     x: xRight,
                     y: yUp,
                     mode: 'markers',
-                    marker: { size: 6 },
+                    marker: { size: 6, color: dataCols[i].color },
                     name: label + ' points',
                     showlegend: false,
                     hovertemplate: 'Height (m): %{y}<br>Value: %{customdata}',
@@ -339,7 +349,8 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         document.getElementById('plotPane').innerHTML = '<span>No data to plot.</span>';
         return;
     }
-    // Clear the placeholder message
+    // Clear any existing plot to ensure clean redraw
+    Plotly.purge('plotPane');
     document.getElementById('plotPane').innerHTML = '';
     // Left-justify the plot by setting xaxis range to start at -0.5 and minimal left margin
     const n = colLabels.length;
@@ -372,7 +383,8 @@ function renderTable() {
             <th class="sticky-2 sticky-header" style="width: 120px;"></th>
             ${dataCols.map((col, i) => `
                 <th class="sticky-header">
-                    <input type="text" class="form-control form-control-sm" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
+                    <input type="text" class="form-control form-control-sm mb-1" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
+                    <input type="color" class="form-control form-control-sm form-control-color" value="${col.color}" data-col-idx="${i}" onchange="onColColorChange(event)" style="height: 30px;">
                 </th>`).join('')}
             <th class="sticky-header" style="width: 60px;"></th>
         `;
@@ -420,11 +432,26 @@ window.onColLabelChange = function(e) {
     renderTable();
     saveToStorage();
 };
+window.onColColorChange = function(e) {
+    const idx = +e.target.getAttribute('data-col-idx');
+    dataCols[idx].color = e.target.value;
+    saveToStorage();
+    // Auto-update plot if there's data to plot
+    const hasData = dataCols.some(col => col.label.trim() !== '');
+    if (hasData) {
+        document.getElementById('plotDataBtn').click();
+    }
+};
 window.onColTypeChange = function(e) {
     const idx = +e.target.getAttribute('data-col-idx');
     dataCols[idx].type = e.target.value;
     renderTable();
     saveToStorage();
+    // Auto-update plot if there's data to plot
+    const hasData = dataCols.some(col => col.label.trim() !== '');
+    if (hasData) {
+        setTimeout(() => document.getElementById('plotDataBtn').click(), 10);
+    }
 };
 window.onHeightChange = function(e) {
     const rowIdx = +e.target.getAttribute('data-row-idx');
@@ -508,7 +535,7 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
     dataCols = getInitialCols();
     // Set up columns 1-6
     const labels = ["Semibalanus", "Cthalamus", "Greenish algae", "Brownish algae", "Winkles", "Dogwelks"];
-    const types = ["% cover", "% cover", "% cover", "% cover", "Count", "Count"];
+    const types = ["% cover", "% cover", "% cover", "% cover", "count", "count"];
     for (let i = 0; i < 6; ++i) {
         dataCols[i].label = labels[i];
         dataCols[i].type = types[i];
