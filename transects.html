@@ -525,8 +525,10 @@ function samplePoisson(lambda) {
 }
 
 // Initialize
-dataCols = getInitialCols();
-dataRows = getInitialRows();
+if (!loadFromStorage()) {
+    dataCols = getInitialCols();
+    dataRows = getInitialRows();
+}
 renderTable();
 </script>
 </body>
