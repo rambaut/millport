@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transect Data Entry</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-responsive {
+            max-height: 400px;
+            overflow: auto;
+        }
+        th.sticky, td.sticky {
+            position: sticky;
+            left: 0;
+            background: #fff;
+            z-index: 2;
+        }
+        th.sticky-2, td.sticky-2 {
+            position: sticky;
+            left: 80px;
+            background: #fff;
+            z-index: 2;
+        }
+        th.sticky-header {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 3;
+        }
+        .toolbar {
+            margin-bottom: 1rem;
+        }
+        .delete-row-btn {
+            color: #dc3545;
+            cursor: pointer;
+        }
+        .table thead th {
+            vertical-align: middle;
+        }
+        .table tbody td {
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <div class="toolbar d-flex justify-content-between align-items-center mb-2">
+        <h4>Transect Data Entry</h4>
+        <div>
+            <button id="exportBtn" class="btn btn-outline-primary me-2">Export Data</button>
+            <button id="importBtn" class="btn btn-outline-primary me-2">Import Data</button>
+            <button id="clearBtn" class="btn btn-outline-danger me-2">Clear</button>
+            <button id="testDataBtn" class="btn btn-outline-secondary">Test Data</button>
+        </div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv" style="display: none;">
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle" id="dataTable">
+            <thead>
+                <tr>
+                    <th class="sticky sticky-header" style="width: 80px;"></th>
+                    <th class="sticky-2 sticky-header" style="width: 120px;"></th>
+                    <!-- Dynamic column headers here -->
+                </tr>
+                <tr id="column-controls">
+                    <th class="sticky">Station</th>
+                    <th class="sticky-2">Height (m)</th>
+                    <!-- Dynamic column controls here -->
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Dynamic rows here -->
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-2 d-flex">
+        <button id="addRowBtn" class="btn btn-primary">Add Row</button>
+    </div>
+    <div class="mt-4">
+        <button id="plotDataBtn" class="btn btn-success mb-2">Plot Data</button>
+        <div id="plotPane" class="border bg-white w-100" style="height: 350px; color: #aaa;">
+            <span>Plot will appear here.</span>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<script>
+// --- Persistence helpers ---
+const STORAGE_KEY = 'millport_transects_data_v1';
+function saveToStorage() {
+    const payload = {
+        dataCols,
+        dataRows
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+function loadFromStorage() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!parsed.dataCols || !parsed.dataRows) return false;
+        dataCols = parsed.dataCols;
+        dataRows = parsed.dataRows;
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// --- Export/Import helpers ---
+function exportToCSV() {
+    // Build CSV content
+    let csv = [];
+    // Header row: Station, Height (m), column labels
+    let headerRow = ['Station', 'Height (m)'].concat(dataCols.map(col => col.label || ''));
+    csv.push(headerRow.join(','));
+    // Type row: empty, empty, column types
+    let typeRow = ['', ''].concat(dataCols.map(col => col.type));
+    csv.push(typeRow.join(','));
+    // Data rows
+    dataRows.forEach((row, idx) => {
+        let dataRow = [idx + 1, row.height].concat(row.data);
+        csv.push(dataRow.join(','));
+    });
+    // Create download
+    const csvContent = csv.join('\\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'transects.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importFromCSV(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = e.target.result;
+            const lines = content.split('\\n').filter(line => line.trim());
+            if (lines.length < 2) {
+                alert('Invalid CSV format: not enough rows');
+                return;
+            }
+            // Parse header row
+            const headers = lines[0].split(',').map(h => h.trim());
+            if (headers.length < 2 || headers[0] !== 'Station' || headers[1] !== 'Height (m)') {
+                alert('Invalid CSV format: first two columns must be Station and Height (m)');
+                return;
+            }
+            // Parse type row
+            const types = lines[1].split(',').map(t => t.trim());
+            // Initialize columns
+            dataCols = getInitialCols();
+            for (let i = 2; i < headers.length && i - 2 < NUM_DATA_COLS; i++) {
+                dataCols[i - 2].label = headers[i] || '';
+                dataCols[i - 2].type = types[i] || 'count';
+            }
+            // Parse data rows
+            dataRows = [];
+            for (let i = 2; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.trim());
+                if (cols.length < 2) continue;
+                const height = cols[1];
+                const data = Array(NUM_DATA_COLS).fill('');
+                for (let j = 2; j < cols.length && j - 2 < NUM_DATA_COLS; j++) {
+                    data[j - 2] = cols[j] || '';
+                }
+                dataRows.push({ height, data });
+            }
+            if (dataRows.length === 0) {
+                dataRows = [createEmptyRow()];
+            }
+            renderTable();
+            saveToStorage();
+            alert('Data imported successfully!');
+        } catch (err) {
+            alert('Error importing CSV: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+}
+
+// --- Plot Data button logic ---
+document.getElementById('plotDataBtn').addEventListener('click', function() {
+    const traces = [];
+    let colIdx = 0;
+    const colLabels = [];
+    // Find all columns with labels
+    for (let i = 0; i < dataCols.length; ++i) {
+        const label = dataCols[i].label.trim();
+        if (label) colLabels.push(label);
+    }
+    // Assign each column a unique x-position
+    for (let i = 0, plotIdx = 0; i < dataCols.length; ++i) {
+        const label = dataCols[i].label.trim();
+        if (!label) continue;
+        const colType = dataCols[i].type;
+        // Gather data for this column
+        const heights = [];
+        const values = [];
+        for (let j = 0; j < dataRows.length; ++j) {
+            let h = dataRows[j].height;
+            let val = dataRows[j].data[i];
+            if (val === '' || isNaN(val) || h === '' || isNaN(h)) continue;
+            h = parseFloat(h);
+            val = parseFloat(val);
+            heights.push(h);
+            values.push(val);
+        }
+        if (heights.length > 0) {
+            // Sort by height for a smooth kite/bar
+            const zipped = heights.map((h, idx) => [h, values[idx]]).sort((a, b) => a[0] - b[0]);
+            const sortedHeights = zipped.map(z => z[0]);
+            const sortedValues = zipped.map(z => z[1]);
+            const xCenter = plotIdx;
+            const maxVal = Math.max(...sortedValues);
+            const scale = maxVal > 0 ? 0.4 / maxVal : 0.4;
+            if (colType === 'Count') {
+                // Plot as horizontal bars (no smoothing)
+                const xBarRight = sortedValues.map(v => xCenter + v * scale);
+                const xBarLeft = sortedValues.map(v => xCenter - v * scale);
+                traces.push({
+                    type: 'scatter',
+                    x: [].concat(...sortedHeights.map((h, idx) => [xBarLeft[idx], xBarRight[idx], null])),
+                    y: [].concat(...sortedHeights.map((h, idx) => [h, h, null])),
+                    mode: 'lines',
+                    name: label,
+                    line: { shape: 'linear', width: 6 },
+                    hoverinfo: 'skip',
+                    showlegend: true,
+                    opacity: 0.7
+                });
+                // Add points for hover info
+                traces.push({
+                    type: 'scatter',
+                    x: xBarRight,
+                    y: sortedHeights,
+                    mode: 'markers',
+                    marker: { size: 6 },
+                    name: label + ' points',
+                    showlegend: false,
+                    hovertemplate: 'Height (m): %{y}<br>Value: %{customdata}',
+                    customdata: sortedValues
+                });
+            } else {
+                // Plot as kite (smoothed polygon)
+                const xRight = sortedValues.map(v => xCenter + v * scale);
+                const xLeft = sortedValues.map(v => xCenter - v * scale).reverse();
+                const yUp = [...sortedHeights];
+                const yDown = [...sortedHeights].reverse();
+                const xPoly = xRight.concat(xLeft, [xRight[0]]);
+                const yPoly = yUp.concat(yDown, [yUp[0]]);
+                traces.push({
+                    type: 'scatter',
+                    x: xPoly,
+                    y: yPoly,
+                    fill: 'toself',
+                    name: label,
+                    mode: 'lines',
+                    line: { shape: 'spline' },
+                    hoverinfo: 'skip',
+                    showlegend: true,
+                    opacity: 0.7
+                });
+                // Add points for hover info
+                traces.push({
+                    type: 'scatter',
+                    x: xRight,
+                    y: yUp,
+                    mode: 'markers',
+                    marker: { size: 6 },
+                    name: label + ' points',
+                    showlegend: false,
+                    hovertemplate: 'Height (m): %{y}<br>Value: %{customdata}',
+                    customdata: sortedValues
+                });
+            }
+            plotIdx++;
+        }
+    }
+    if (traces.length === 0) {
+        Plotly.purge('plotPane');
+        document.getElementById('plotPane').innerHTML = '<span>No data to plot.</span>';
+        return;
+    }
+    // Left-justify the plot by setting xaxis range to start at -0.5 and minimal left margin
+    const n = colLabels.length;
+    Plotly.newPlot('plotPane', traces, {
+        title: 'Kite Diagrams by Column',
+        yaxis: { title: 'Height (m)' },
+        xaxis: {
+            title: 'Column',
+            tickvals: colLabels.map((_, i) => i),
+            ticktext: colLabels,
+            tickangle: -45,
+            zeroline: false,
+            range: n > 0 ? [-0.5, n - 0.5] : undefined
+        },
+        margin: { t: 40, b: 100, l: 60, r: 10 },
+        height: 340,
+        plot_bgcolor: '#fff',
+        paper_bgcolor: '#fff',
+        showlegend: true,
+        autosize: true
+    }, {responsive: true});
+});
+const NUM_DATA_COLS = 10;
+let dataCols, dataRows;
+
+function getInitialCols() {
+    return Array.from({length: NUM_DATA_COLS}, () => ({
+        label: '',
+        type: 'count'
+    }));
+}
+function getInitialRows() {
+    return [createEmptyRow()];
+}
+function createEmptyRow() {
+    return {
+        height: '',
+        data: Array(NUM_DATA_COLS).fill('')
+    };
+}
+
+function renderTable() {
+    // Render column headers (first row: empty for first two columns)
+    const theadRows = document.querySelectorAll('#dataTable thead tr');
+    if (theadRows.length >= 2) {
+        // First header row: empty for first two columns, then column label inputs
+        theadRows[0].innerHTML = `
+            <th class="sticky sticky-header" style="width: 80px;"></th>
+            <th class="sticky-2 sticky-header" style="width: 120px;"></th>
+            ${dataCols.map((col, i) => `
+                <th class="sticky-header">
+                    <input type="text" class="form-control form-control-sm" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
+                </th>`).join('')}
+            <th class="sticky-header" style="width: 60px;"></th>
+        `;
+        // Second header row: Station, Height (m), then column type dropdowns
+        theadRows[1].innerHTML = `
+            <th class="sticky">Station</th>
+            <th class="sticky-2">Height (m)</th>
+            ${dataCols.map((col, i) => `
+                <th>
+                    <select class="form-select form-select-sm" data-col-idx="${i}" onchange="onColTypeChange(event)">
+                        <option value="count"${col.type==='count'?' selected':''}>count</option>
+                        <option value="% cover"${col.type==='% cover'?' selected':''}>% cover</option>
+                    </select>
+                </th>
+            `).join('')}
+            <th></th>
+        `;
+    }
+    // Render rows
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = dataRows.map((row, rowIdx) => `
+        <tr>
+            <td class="sticky">${rowIdx+1}</td>
+            <td class="sticky-2">
+                <input type="number" class="form-control form-control-sm" min="0" step="0.01" value="${row.height}"
+                    data-row-idx="${rowIdx}" onchange="onHeightChange(event)">
+            </td>
+            ${row.data.map((val, colIdx) => `
+                <td>
+                    <input type="number" class="form-control form-control-sm" min="0" step="1" value="${val}"
+                        data-row-idx="${rowIdx}" data-col-idx="${colIdx}" onchange="onDataCellChange(event)">
+                </td>`).join('')}
+            <td>
+                <button class="btn btn-link btn-sm delete-row-btn" onclick="deleteRow(${rowIdx})" title="Delete row">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.onColLabelChange = function(e) {
+    const idx = +e.target.getAttribute('data-col-idx');
+    dataCols[idx].label = e.target.value;
+    renderTable();
+    saveToStorage();
+};
+window.onColTypeChange = function(e) {
+    const idx = +e.target.getAttribute('data-col-idx');
+    dataCols[idx].type = e.target.value;
+    renderTable();
+    saveToStorage();
+};
+window.onHeightChange = function(e) {
+    const rowIdx = +e.target.getAttribute('data-row-idx');
+    let val = e.target.value;
+    if (val === '' || isNaN(val)) val = '';
+    else val = Math.max(0, parseFloat(val));
+    dataRows[rowIdx].height = val;
+    saveToStorage();
+};
+window.onDataCellChange = function(e) {
+    const rowIdx = +e.target.getAttribute('data-row-idx');
+    const colIdx = +e.target.getAttribute('data-col-idx');
+    let val = e.target.value;
+    if (val === '' || isNaN(val)) val = '';
+    else val = Math.max(0, Math.floor(Number(val)));
+    dataRows[rowIdx].data[colIdx] = val;
+    saveToStorage();
+};
+window.deleteRow = function(rowIdx) {
+    if (dataRows.length === 1) {
+        dataRows = [createEmptyRow()];
+    } else {
+        dataRows.splice(rowIdx, 1);
+    }
+    renderTable();
+    saveToStorage();
+};
+document.getElementById('addRowBtn').addEventListener('click', function() {
+    dataRows.push(createEmptyRow());
+    renderTable();
+    saveToStorage();
+});
+
+// Export button logic
+document.getElementById('exportBtn').addEventListener('click', function() {
+    exportToCSV();
+});
+
+// Import button logic
+document.getElementById('importBtn').addEventListener('click', function() {
+    document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        if (confirm('This will replace all current data. Continue?')) {
+            importFromCSV(file);
+        }
+        // Reset file input
+        e.target.value = '';
+    }
+});
+
+// Clear button logic
+document.getElementById('clearBtn').addEventListener('click', function() {
+    if (confirm('Are you sure you want to clear the page?')) {
+        dataCols = getInitialCols();
+        dataRows = getInitialRows();
+        renderTable();
+        saveToStorage();
+    }
+});
+
+// Test Data button logic
+document.getElementById('testDataBtn').addEventListener('click', function() {
+    if (!confirm('This will clear the table and insert test data. Continue?')) return;
+    dataCols = getInitialCols();
+    // Set up columns 1-6
+    const labels = ["Semibalanus", "Cthalamus", "Greenish algae", "Brownish algae", "Winkles", "Dogwelks"];
+    const types = ["% cover", "% cover", "% cover", "% cover", "Count", "Count"];
+    for (let i = 0; i < 6; ++i) {
+        dataCols[i].label = labels[i];
+        dataCols[i].type = types[i];
+    }
+    dataRows = [];
+    for (let i = 0; i < 20; ++i) {
+        const height = +(i * 0.4).toFixed(2);
+        let row = { height: height, data: Array(NUM_DATA_COLS).fill('') };
+        // Col 1: normal(mean=height*12.5, sd=10), truncated 0-100, 1dp
+        row.data[0] = sampleNormalTrunc(height*12.5, 10, 0, 100, 1);
+        // Col 2: normal(mean=8-height*12.5, sd=10), truncated 0-100, 1dp
+        row.data[1] = sampleNormalTrunc(8-height*12.5, 10, 0, 100, 1);
+        // Col 3: normal(mean=height*12.5, sd=10), truncated 0-100, 1dp
+        row.data[2] = sampleNormalTrunc(height*12.5, 10, 0, 100, 1);
+        // Col 4: normal(mean=8-height*12.5, sd=10), truncated 0-100, 1dp
+        row.data[3] = sampleNormalTrunc(8-height*12.5, 10, 0, 100, 1);
+        // Col 5: poisson(mean=10)
+        row.data[4] = samplePoisson(10);
+        // Col 6: poisson(mean=height)
+        row.data[5] = samplePoisson(height);
+        dataRows.push(row);
+    }
+    if (dataRows.length === 0) dataRows = [createEmptyRow()];
+    renderTable();
+    saveToStorage();
+});
+
+// Helper: sample from normal distribution, truncated, with decimal places
+function sampleNormalTrunc(mean, sd, min, max, decimals) {
+    // Clamp mean to [min, max] to avoid impossible sampling
+    mean = Math.max(min, Math.min(max, mean));
+    let val;
+    let attempts = 0, maxAttempts = 100;
+    do {
+        val = mean + sd * boxMullerRandom();
+        attempts++;
+        if (attempts > maxAttempts) {
+            // If can't find a value, return closest bound
+            return Number(Math.max(min, Math.min(max, val)).toFixed(decimals));
+        }
+    } while (val < min || val > max);
+    return Number(val.toFixed(decimals));
+}
+// Helper: standard normal
+function boxMullerRandom() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+// Helper: sample from Poisson distribution
+function samplePoisson(lambda) {
+    let L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+    do {
+        k++;
+        p *= Math.random();
+    } while (p > L);
+    return k - 1;
+}
+
+// Initialize
+dataCols = getInitialCols();
+dataRows = getInitialRows();
+renderTable();
+</script>
+</body>
+</html>
