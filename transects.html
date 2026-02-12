@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transect Data Entry</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
         .table-responsive {
             max-height: 400px;
@@ -41,6 +42,37 @@
         .table tbody td {
             vertical-align: middle;
         }
+        td.sticky {
+            padding-left: 5px !important;
+        }
+        td.sticky .cell-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .insert-row-btn {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            margin-right: 4px;
+            border-radius: 50%;
+            background: #28a745;
+            color: white;
+            border: none;
+            font-size: 11px;
+            line-height: 18px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            vertical-align: middle;
+        }
+        tr:hover .insert-row-btn {
+            opacity: 1;
+        }
+        .insert-row-btn:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -74,7 +106,7 @@
                     <!-- Dynamic column headers here -->
                 </tr>
                 <tr id="column-controls">
-                    <th class="sticky">Station</th>
+                    <th class="sticky">No.</th>
                     <th class="sticky-2">Height (m)</th>
                     <!-- Dynamic column controls here -->
                 </tr>
@@ -85,8 +117,10 @@
         </table>
     </div>
     <div class="mt-4">
-        <button id="plotDataBtn" class="btn btn-success mb-2 me-2">Plot Data</button>
-        <button id="addRowBtn" class="btn btn-primary mb-2">Add Row</button>
+        <div class="d-flex justify-content-between mb-2">
+            <button id="plotDataBtn" class="btn btn-success">Plot Data</button>
+            <button id="addRowBtn" class="btn btn-primary">Add Row</button>
+        </div>
         <div id="plotPane" class="border bg-white w-100" style="height: 350px; color: #aaa;">
             <span>Plot will appear here.</span>
         </div>
@@ -167,8 +201,8 @@ function clearPlot() {
 function exportToCSV() {
     // Build CSV content
     let csv = [];
-    // Header row: Station, Height (m), column labels
-    let headerRow = ['Station', 'Height (m)'].concat(dataCols.map(col => col.label || ''));
+    // Header row: No., Height (m), column labels
+    let headerRow = ['No.', 'Height (m)'].concat(dataCols.map(col => col.label || ''));
     csv.push(headerRow.join(','));
     // Type row: empty, empty, column types
     let typeRow = ['', ''].concat(dataCols.map(col => col.type));
@@ -201,8 +235,8 @@ function importFromCSV(file) {
             }
             // Parse header row
             const headers = lines[0].split(',').map(h => h.trim());
-            if (headers.length < 2 || headers[0] !== 'Station' || headers[1] !== 'Height (m)') {
-                alert('Invalid CSV format: first two columns must be Station and Height (m)');
+            if (headers.length < 2 || (headers[0] !== 'No.' && headers[0] !== 'Station') || headers[1] !== 'Height (m)') {
+                alert('Invalid CSV format: first two columns must be No. and Height (m)');
                 return;
             }
             // Parse type row
@@ -388,9 +422,9 @@ function renderTable() {
                 </th>`).join('')}
             <th class="sticky-header" style="width: 60px;"></th>
         `;
-        // Second header row: Station, Height (m), then column type dropdowns
+        // Second header row: No., Height (m), then column type dropdowns
         theadRows[1].innerHTML = `
-            <th class="sticky">Station</th>
+            <th class="sticky">No.</th>
             <th class="sticky-2">Height (m)</th>
             ${dataCols.map((col, i) => `
                 <th>
@@ -407,7 +441,14 @@ function renderTable() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = dataRows.map((row, rowIdx) => `
         <tr>
-            <td class="sticky">${rowIdx+1}</td>
+            <td class="sticky">
+                <div class="cell-content">
+                    <span>${rowIdx+1}</span>
+                    <button class="insert-row-btn" onclick="insertRowAfter(${rowIdx})" title="Insert row after">
+                        <i class="bi bi-plus" style="line-height: 1;"></i>
+                    </button>
+                </div>
+            </td>
             <td class="sticky-2">
                 <input type="number" class="form-control form-control-sm" min="0" step="0.01" value="${row.height}"
                     data-row-idx="${rowIdx}" onchange="onHeightChange(event)">
@@ -419,7 +460,7 @@ function renderTable() {
                 </td>`).join('')}
             <td>
                 <button class="btn btn-link btn-sm delete-row-btn" onclick="deleteRow(${rowIdx})" title="Delete row">
-                    <span aria-hidden="true">&times;</span>
+                    <i class="bi bi-trash"></i>
                 </button>
             </td>
         </tr>
@@ -476,6 +517,12 @@ window.deleteRow = function(rowIdx) {
     } else {
         dataRows.splice(rowIdx, 1);
     }
+    renderTable();
+    saveToStorage();
+};
+window.insertRowAfter = function(rowIdx) {
+    const newRow = createEmptyRow();
+    dataRows.splice(rowIdx + 1, 0, newRow);
     renderTable();
     saveToStorage();
 };
