@@ -87,6 +87,27 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 <script>
+// --- Variables ---
+const NUM_DATA_COLS = 10;
+let dataCols, dataRows;
+
+// --- Helper functions ---
+function getInitialCols() {
+    return Array.from({length: NUM_DATA_COLS}, () => ({
+        label: '',
+        type: 'count'
+    }));
+}
+function getInitialRows() {
+    return [createEmptyRow()];
+}
+function createEmptyRow() {
+    return {
+        height: '',
+        data: Array(NUM_DATA_COLS).fill('')
+    };
+}
+
 // --- Persistence helpers ---
 const STORAGE_KEY = 'millport_transects_data_v1';
 function saveToStorage() {
@@ -309,24 +330,6 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         autosize: true
     }, {responsive: true});
 });
-const NUM_DATA_COLS = 10;
-let dataCols, dataRows;
-
-function getInitialCols() {
-    return Array.from({length: NUM_DATA_COLS}, () => ({
-        label: '',
-        type: 'count'
-    }));
-}
-function getInitialRows() {
-    return [createEmptyRow()];
-}
-function createEmptyRow() {
-    return {
-        height: '',
-        data: Array(NUM_DATA_COLS).fill('')
-    };
-}
 
 function renderTable() {
     // Render column headers (first row: empty for first two columns)
