@@ -46,7 +46,13 @@
 <body class="bg-light">
 <div class="container py-4">
     <div class="toolbar d-flex justify-content-between align-items-center mb-2">
-        <h4>Transect Data Entry</h4>
+        <div class="d-flex align-items-center">
+            <h4 class="mb-0 me-3">Transect Data Entry</h4>
+            <div class="d-flex align-items-center">
+                <label for="chartDatum" class="me-2 mb-0">Chart datum:</label>
+                <input type="number" id="chartDatum" class="form-control form-control-sm" style="width: 100px;" step="0.01" value="0" placeholder="0.0">
+            </div>
+        </div>
         <div>
             <button id="exportBtn" class="btn btn-outline-primary me-2">Export Data</button>
             <button id="importBtn" class="btn btn-outline-primary me-2">Import Data</button>
@@ -90,6 +96,7 @@
 // --- Variables ---
 const NUM_DATA_COLS = 10;
 let dataCols, dataRows;
+let chartDatum = 0;
 
 // --- Helper functions ---
 function getInitialCols() {
@@ -113,7 +120,8 @@ const STORAGE_KEY = 'millport_transects_data_v1';
 function saveToStorage() {
     const payload = {
         dataCols,
-        dataRows
+        dataRows,
+        chartDatum
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
@@ -125,6 +133,8 @@ function loadFromStorage() {
         if (!parsed.dataCols || !parsed.dataRows) return false;
         dataCols = parsed.dataCols;
         dataRows = parsed.dataRows;
+        chartDatum = parsed.chartDatum || 0;
+        document.getElementById('chartDatum').value = chartDatum;
         return true;
     } catch {
         return false;
@@ -211,6 +221,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     const traces = [];
     let colIdx = 0;
     const colLabels = [];
+    const datumOffset = parseFloat(document.getElementById('chartDatum').value) || 0;
     // Find all columns with labels
     for (let i = 0; i < dataCols.length; ++i) {
         const label = dataCols[i].label.trim();
@@ -245,10 +256,11 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                 // Plot as horizontal bars (no smoothing)
                 const xBarRight = sortedValues.map(v => xCenter + v * scale);
                 const xBarLeft = sortedValues.map(v => xCenter - v * scale);
+                const yWithDatum = sortedHeights.map(h => h + datumOffset);
                 traces.push({
                     type: 'scatter',
-                    x: [].concat(...sortedHeights.map((h, idx) => [xBarLeft[idx], xBarRight[idx], null])),
-                    y: [].concat(...sortedHeights.map((h, idx) => [h, h, null])),
+                    x: [].concat(...yWithDatum.map((h, idx) => [xBarLeft[idx], xBarRight[idx], null])),
+                    y: [].concat(...yWithDatum.map((h, idx) => [h, h, null])),
                     mode: 'lines',
                     name: label,
                     line: { shape: 'linear', width: 6 },
@@ -260,7 +272,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                 traces.push({
                     type: 'scatter',
                     x: xBarRight,
-                    y: sortedHeights,
+                    y: yWithDatum,
                     mode: 'markers',
                     marker: { size: 6 },
                     name: label + ' points',
@@ -272,8 +284,8 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                 // Plot as kite (smoothed polygon)
                 const xRight = sortedValues.map(v => xCenter + v * scale);
                 const xLeft = sortedValues.map(v => xCenter - v * scale).reverse();
-                const yUp = [...sortedHeights];
-                const yDown = [...sortedHeights].reverse();
+                const yUp = sortedHeights.map(h => h + datumOffset);
+                const yDown = [...yUp].reverse();
                 const xPoly = xRight.concat(xLeft, [xRight[0]]);
                 const yPoly = yUp.concat(yDown, [yUp[0]]);
                 traces.push({
@@ -424,6 +436,12 @@ window.deleteRow = function(rowIdx) {
 document.getElementById('addRowBtn').addEventListener('click', function() {
     dataRows.push(createEmptyRow());
     renderTable();
+    saveToStorage();
+});
+
+// Chart datum change handler
+document.getElementById('chartDatum').addEventListener('change', function() {
+    chartDatum = parseFloat(this.value) || 0;
     saveToStorage();
 });
 
