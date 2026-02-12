@@ -149,6 +149,12 @@ function loadFromStorage() {
     }
 }
 
+// --- Plot helpers ---
+function clearPlot() {
+    Plotly.purge('plotPane');
+    document.getElementById('plotPane').innerHTML = '<span>Plot will appear here.</span>';
+}
+
 // --- Export/Import helpers ---
 function exportToCSV() {
     // Build CSV content
@@ -165,7 +171,7 @@ function exportToCSV() {
         csv.push(dataRow.join(','));
     });
     // Create download
-    const csvContent = csv.join('\\n');
+    const csvContent = csv.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -180,7 +186,7 @@ function importFromCSV(file) {
     reader.onload = function(e) {
         try {
             const content = e.target.result;
-            const lines = content.split('\\n').filter(line => line.trim());
+            const lines = content.split(/\r?\n/).filter(line => line.trim());
             if (lines.length < 2) {
                 alert('Invalid CSV format: not enough rows');
                 return;
@@ -216,7 +222,10 @@ function importFromCSV(file) {
             }
             renderTable();
             saveToStorage();
+            clearPlot();
             alert('Data imported successfully!');
+            // Auto-plot the imported data
+            document.getElementById('plotDataBtn').click();
         } catch (err) {
             alert('Error importing CSV: ' + err.message);
         }
@@ -330,6 +339,8 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         document.getElementById('plotPane').innerHTML = '<span>No data to plot.</span>';
         return;
     }
+    // Clear the placeholder message
+    document.getElementById('plotPane').innerHTML = '';
     // Left-justify the plot by setting xaxis range to start at -0.5 and minimal left margin
     const n = colLabels.length;
     Plotly.newPlot('plotPane', traces, {
@@ -487,6 +498,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
         dataRows = getInitialRows();
         renderTable();
         saveToStorage();
+        clearPlot();
     }
 });
 
@@ -522,6 +534,8 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
     if (dataRows.length === 0) dataRows = [createEmptyRow()];
     renderTable();
     saveToStorage();
+    // Auto-plot the test data
+    document.getElementById('plotDataBtn').click();
 });
 
 // Helper: sample from normal distribution, truncated, with decimal places
@@ -563,6 +577,9 @@ function samplePoisson(lambda) {
 if (!loadFromStorage()) {
     dataCols = getInitialCols();
     dataRows = getInitialRows();
+} else {
+    // Auto-plot the loaded data
+    setTimeout(() => document.getElementById('plotDataBtn').click(), 100);
 }
 renderTable();
 </script>
