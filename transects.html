@@ -210,14 +210,15 @@ let dataCols, dataRows;
 let chartDatum = 0;
 let teamName = '';
 
+const DEFAULT_COLOURS = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C', '#FAD77B', '#4A7C59'];
+
 // --- Helper functions ---
 function getInitialCols() {
     // Wes Anderson themed color palette
-    const colors = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C', '#FAD77B', '#4A7C59'];
     return Array.from({length: NUM_DATA_COLS}, (_, i) => ({
         label: '',
         type: 'count',
-        color: colors[i]
+        color: DEFAULT_COLOURS[i]
     }));
 }
 function getInitialRows() {
@@ -252,10 +253,9 @@ function loadFromStorage() {
         chartDatum = parsed.chartDatum || 0;
         teamName = parsed.teamName || '';
         // Ensure colors exist (for backwards compatibility)
-        const colors = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C', '#FAD77B', '#4A7C59'];
         dataCols.forEach((col, i) => {
             if (!col.color) {
-                col.color = colors[i];
+                col.color = DEFAULT_COLOURS[i];
             }
         });
         document.getElementById('chartDatum').value = chartDatum;
@@ -703,7 +703,7 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
     if (!confirm('This will clear the table and insert test data. Continue?')) return;
     dataCols = getInitialCols();
     // Set up columns 1-6
-    const labels = ["Semibalanus", "Cthalamus", "Greenish algae", "Brownish algae", "Winkles", "Dogwelks"];
+    const labels = ["Semibalanus", "Chthamalus", "Greenish algae", "Brownish algae", "Winkles", "Dogwelks"];
     const types = ["% cover", "% cover", "% cover", "% cover", "count", "count"];
     for (let i = 0; i < 6; ++i) {
         dataCols[i].label = labels[i];
