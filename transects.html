@@ -195,6 +195,29 @@
         th.sticky .header-insert-btn:hover {
             background: #218838;
         }
+        .resize-handle {
+            height: 8px;
+            background: #e9ecef;
+            cursor: ns-resize;
+            border-top: 1px solid #dee2e6;
+            border-bottom: 1px solid #dee2e6;
+            position: relative;
+            user-select: none;
+        }
+        .resize-handle:hover {
+            background: #ced4da;
+        }
+        .resize-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 3px;
+            background: #6c757d;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -242,7 +265,8 @@
             </tbody>
         </table>
     </div>
-    <div class="mt-4">
+    <div class="resize-handle" id="resizeHandle"></div>
+    <div class="mt-2">
         <div class="d-flex justify-content-between mb-2">
             <button id="plotDataBtn" class="btn btn-success">Plot Data</button>
         </div>
@@ -747,6 +771,38 @@ document.getElementById('chartDatum').addEventListener('change', function() {
 document.getElementById('teamName').addEventListener('input', function() {
     teamName = this.value;
     saveToStorage();
+});
+
+// Table resize handle
+let isResizing = false;
+const resizeHandle = document.getElementById('resizeHandle');
+const tableResponsive = document.querySelector('.table-responsive');
+
+resizeHandle.addEventListener('mousedown', function(e) {
+    isResizing = true;
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+});
+
+document.addEventListener('mousemove', function(e) {
+    if (!isResizing) return;
+    
+    const containerTop = tableResponsive.getBoundingClientRect().top;
+    const newHeight = e.clientY - containerTop;
+    
+    // Set minimum and maximum heights
+    if (newHeight >= 200 && newHeight <= 800) {
+        tableResponsive.style.maxHeight = newHeight + 'px';
+    }
+});
+
+document.addEventListener('mouseup', function() {
+    if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }
 });
 
 // Export button logic
