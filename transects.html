@@ -9,10 +9,17 @@
     <style>
         .table-responsive {
             max-height: 385px;
-            overflow: auto;
+            overflow-x: auto;
+            overflow-y: auto;
+            position: relative;
+            display: block;
+            overflow-anchor: none;
         }
         #dataTable {
             table-layout: fixed;
+            position: relative;
+            margin-bottom: 0;
+            display: table;
         }
         #dataTable th:not(.sticky):not(.sticky-2):not(:last-child),
         #dataTable td:not(.sticky):not(.sticky-2):not(:last-child) {
@@ -32,9 +39,13 @@
             background: #fff;
             z-index: 2;
         }
+        tbody tr:hover td.sticky,
+        tbody tr:hover td.sticky-2 {
+            z-index: 10001;
+        }
         th.sticky.sticky-header,
         th.sticky-2.sticky-header {
-            z-index: 4;
+            z-index: 1002;
         }
         td.sticky {
             padding: 0.25rem !important;
@@ -44,6 +55,9 @@
         }
         td.sticky-2 input {
             font-size: 0.875rem;
+        }
+        td.sticky, td.sticky-2 {
+            overflow: visible;
         }
         .fill-btn-container {
             display: flex;
@@ -64,7 +78,7 @@
             position: sticky;
             top: 0;
             background: #f8f9fa;
-            z-index: 3;
+            z-index: 1000;
         }
         .toolbar {
             margin-bottom: 1rem;
@@ -78,42 +92,107 @@
         }
         .table tbody td {
             vertical-align: middle;
+            overflow: visible;
         }
         td.sticky {
             padding-left: 5px !important;
+            overflow: visible !important;
+            position: relative;
         }
         td.sticky .cell-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            overflow: hidden;
+            overflow: visible;
+            position: relative;
+        }
+        td.sticky .cell-content::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -10px;
+            right: -10px;
+            height: 200%;
+            z-index: 8;
+        }
+        td.sticky .cell-content:hover .insert-row-btn {
+            opacity: 1;
+            z-index: 10002;
         }
         td.sticky .cell-content span {
             font-size: 0.875rem;
         }
+        td.sticky {
+            overflow: visible;
+        }
+        tbody tr {
+            position: relative;
+            z-index: 1;
+        }
+        tbody tr:hover {
+            z-index: 10000;
+        }
+        tbody tr:hover td:not(.sticky):not(.sticky-2) {
+            position: relative;
+            z-index: 10001;
+        }
+        tbody {
+            position: relative;
+            display: table-row-group;
+        }
         .insert-row-btn {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
+            position: absolute;
+            bottom: -15px;
+            left: 25px;
+            width: 20px;
+            height: 20px;
             padding: 0;
-            margin-right: 2px;
             border-radius: 50%;
             background: #28a745;
             color: white;
-            border: none;
-            font-size: 10px;
+            border: 2px solid white;
+            font-size: 12px;
             line-height: 16px;
             cursor: pointer;
             opacity: 0;
             transition: opacity 0.2s;
-            vertical-align: middle;
-            flex-shrink: 0;
-        }
-        tr:hover .insert-row-btn {
-            opacity: 1;
+            z-index: 10002;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            pointer-events: auto;
+            transform: translate(-50%, 50%);
         }
         .insert-row-btn:hover {
+            background: #218838;
+        }
+        tbody tr:hover .insert-row-btn {
+            opacity: 0;
+        }
+        th.sticky .header-insert-btn {
+            position: absolute;
+            bottom: 0;
+            left: 30px;
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border-radius: 50%;
+            background: #28a745;
+            color: white;
+            border: 2px solid white;
+            font-size: 12px;
+            line-height: 16px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10002;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            pointer-events: auto;
+            transform: translate(-50%, 50%);
+        }
+        th.sticky:hover .header-insert-btn {
+            opacity: 1;
+        }
+        th.sticky .header-insert-btn:hover {
             background: #218838;
         }
     </style>
@@ -166,7 +245,6 @@
     <div class="mt-4">
         <div class="d-flex justify-content-between mb-2">
             <button id="plotDataBtn" class="btn btn-success">Plot Data</button>
-            <button id="addRowBtn" class="btn btn-primary">Add Row</button>
         </div>
         <div id="plotPane" class="border bg-white w-100" style="height: 450px; color: #aaa;">
             <span>Plot will appear here.</span>
@@ -503,7 +581,12 @@ function renderTable() {
         `;
         // Second header row: No., Height, then column type dropdowns
         theadRows[1].innerHTML = `
-            <th class="sticky" style="width: 60px;">No.</th>
+            <th class="sticky" style="width: 60px; position: relative; overflow: visible;">
+                No.
+                <button class="header-insert-btn" onclick="insertRowAtTop()" title="Insert row at top">
+                    <i class="bi bi-plus" style="line-height: 1;"></i>
+                </button>
+            </th>
             <th class="sticky-2" style="width: 84px;">Height</th>
             ${dataCols.map((col, i) => `
                 <th style="width: 100px;">
@@ -605,6 +688,12 @@ window.insertRowAfter = function(rowIdx) {
     renderTable();
     saveToStorage();
 };
+window.insertRowAtTop = function() {
+    const newRow = createEmptyRow();
+    dataRows.unshift(newRow);
+    renderTable();
+    saveToStorage();
+};
 window.fillHeights = function() {
     const modal = new bootstrap.Modal(document.getElementById('fillHeightsModal'));
     modal.show();
@@ -646,12 +735,6 @@ document.getElementById('applyFillHeights').addEventListener('click', function()
     // Clear inputs for next time
     document.getElementById('startHeight').value = '';
     document.getElementById('heightIncrement').value = '';
-});
-
-document.getElementById('addRowBtn').addEventListener('click', function() {
-    dataRows.push(createEmptyRow());
-    renderTable();
-    saveToStorage();
 });
 
 // Chart datum change handler
