@@ -7,6 +7,13 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
+        :root {
+            --col-width-rownum: 60px;
+            --col-width-height: 84px;
+            --col-width-length: 84px;
+            --col-width-data: 125px;
+            --col-width-action: 48px;
+        }
         .table-responsive {
             max-height: 385px;
             overflow-x: auto;
@@ -23,9 +30,9 @@
         }
         #dataTable th:not(.sticky):not(.sticky-2):not(.sticky-3):not(:last-child),
         #dataTable td:not(.sticky):not(.sticky-2):not(.sticky-3):not(:last-child) {
-            width: 100px;
-            min-width: 100px;
-            max-width: 100px;
+            width: var(--col-width-data);
+            min-width: var(--col-width-data);
+            max-width: var(--col-width-data);
         }
         th.sticky, td.sticky {
             position: sticky;
@@ -35,13 +42,13 @@
         }
         th.sticky-2, td.sticky-2 {
             position: sticky;
-            left: 60px;
+            left: var(--col-width-rownum);
             background: #fff;
             z-index: 2;
         }
         th.sticky-3, td.sticky-3 {
             position: sticky;
-            left: 144px;
+            left: calc(var(--col-width-rownum) + var(--col-width-height));
             background: #fff;
             z-index: 2;
         }
@@ -235,6 +242,47 @@
             background: #6c757d;
             border-radius: 2px;
         }
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        /* Table header cell styles */
+        .table-header-cell {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #212529;
+            vertical-align: middle;
+            background: #f8f9fa;
+            padding: 0.5rem;
+        }
+        /* Table data cell styles */
+        .table-data-cell {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: #212529;
+            vertical-align: middle;
+            padding: 0.25rem;
+        }
+        /* Input fields in cells */
+        .table-cell-input {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 400;
+        }
+        /* Row number cell styles */
+        .row-number-cell {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6c757d;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -263,19 +311,19 @@
         <table class="table table-bordered align-middle" id="dataTable" style="width: 1284px; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th class="sticky sticky-header" style="width: 60px;"></th>
-                    <th class="sticky-2 sticky-header" style="width: 84px;">
+                    <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);"></th>
+                    <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
                         <div class="fill-btn-container">
                             <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
                         </div>
                     </th>
-                    <th class="sticky-3 sticky-header" style="width: 84px;"></th>
+                    <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);"></th>
                     <!-- Dynamic column headers here -->
                 </tr>
                 <tr id="column-controls">
-                    <th class="sticky sticky-header" style="width: 60px;">No.</th>
-                    <th class="sticky-2 sticky-header" style="width: 84px;">Height</th>
-                    <th class="sticky-3 sticky-header" style="width: 84px;">Length</th>
+                    <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);">No.</th>
+                    <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">Height</th>
+                    <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);">Length</th>
                     <!-- Dynamic column controls here -->
                 </tr>
             </thead>
@@ -326,12 +374,12 @@
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 <script>
 // --- Variables ---
-const NUM_DATA_COLS = 10;
+const NUM_DATA_COLS = 8;
 let dataCols, dataRows;
 let chartDatum = 0;
 let teamName = '';
 
-const DEFAULT_COLOURS = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C', '#FAD77B', '#4A7C59'];
+const DEFAULT_COLOURS = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C'];
 
 // --- Helper functions ---
 function getInitialCols() {
@@ -665,64 +713,64 @@ function renderTable() {
     if (theadRows.length >= 2) {
         // First header row: empty for first two columns, then column label inputs
         theadRows[0].innerHTML = `
-            <th class="sticky sticky-header" style="width: 60px;"></th>
-            <th class="sticky-2 sticky-header" style="width: 84px;">
+            <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);"></th>
+            <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
                 <div class="fill-btn-container">
-                    <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
+                    <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill Down</button>
                 </div>
             </th>
-            <th class="sticky-3 sticky-header" style="width: 84px;"></th>
+            <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);"></th>
             ${dataCols.map((col, i) => `
-                <th class="sticky-header" style="width: 100px;">
-                    <input type="text" class="form-control form-control-sm mb-1" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
+                <th class="sticky-header table-header-cell" style="width: var(--col-width-data);">
+                    <input type="text" class="form-control form-control-sm mb-1 table-cell-input" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
                     <input type="color" class="form-control form-control-sm form-control-color" value="${col.color}" data-col-idx="${i}" onchange="onColColorChange(event)" style="height: 30px;">
                 </th>`).join('')}
-            <th class="sticky-header" style="width: 48px;"></th>
+            <th class="sticky-header table-header-cell" style="width: var(--col-width-action);"></th>
         `;
         // Second header row: No., Height, Length, then column type dropdowns
         theadRows[1].innerHTML = `
-            <th class="sticky sticky-header" style="width: 60px;">
+            <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);">
                 No.
             </th>
-            <th class="sticky-2 sticky-header" style="width: 84px;">Height</th>
-            <th class="sticky-3 sticky-header" style="width: 84px;">Length</th>
+            <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">Height</th>
+            <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);">Length</th>
             ${dataCols.map((col, i) => `
-                <th class="sticky-header" style="width: 100px;">
-                    <select class="form-select form-select-sm" data-col-idx="${i}" onchange="onColTypeChange(event)">
+                <th class="sticky-header table-header-cell" style="width: var(--col-width-data);">
+                    <select class="form-select form-select-sm table-cell-input" data-col-idx="${i}" onchange="onColTypeChange(event)">
                         <option value="count"${col.type==='count'?' selected':''}>count</option>
                         <option value="% cover"${col.type==='% cover'?' selected':''}>% cover</option>
                     </select>
                 </th>
             `).join('')}
-            <th class="sticky-header"></th>
+            <th class="sticky-header table-header-cell"></th>
         `;
     }
     // Render rows
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = dataRows.map((row, rowIdx) => `
         <tr>
-            <td class="sticky">
+            <td class="sticky table-data-cell">
                 <div class="cell-content">
-                    <span>${rowIdx+1}</span>
+                    <span class="row-number-cell">${rowIdx+1}</span>
                     <button class="insert-row-btn" onclick="insertRowAfter(${rowIdx})" title="Insert row after">
                         <i class="bi bi-plus" style="line-height: 1;"></i>
                     </button>
                 </div>
             </td>
-            <td class="sticky-2">
-                <input type="number" class="form-control form-control-sm" min="0" step="0.01" value="${row.height}"
+            <td class="sticky-2 table-data-cell">
+                <input type="number" class="form-control form-control-sm table-cell-input" min="0" step="0.01" value="${row.height}"
                     data-row-idx="${rowIdx}" onchange="onHeightChange(event)">
             </td>
-            <td class="sticky-3">
-                <input type="number" class="form-control form-control-sm" min="0" step="0.01" value="${row.length}"
+            <td class="sticky-3 table-data-cell">
+                <input type="number" class="form-control form-control-sm table-cell-input" min="0" step="0.01" value="${row.length}"
                     data-row-idx="${rowIdx}" onchange="onLengthChange(event)">
             </td>
             ${row.data.map((val, colIdx) => `
-                <td>
-                    <input type="number" class="form-control form-control-sm" min="0" step="1" value="${val}"
+                <td class="table-data-cell">
+                    <input type="number" class="form-control form-control-sm table-cell-input" min="0" step="1" value="${val}"
                         data-row-idx="${rowIdx}" data-col-idx="${colIdx}" onchange="onDataCellChange(event)">
                 </td>`).join('')}
-            <td>
+            <td class="table-data-cell">
                 <button class="btn btn-link btn-sm delete-row-btn" onclick="deleteRow(${rowIdx})" title="Delete row">
                     <i class="bi bi-trash"></i>
                 </button>
