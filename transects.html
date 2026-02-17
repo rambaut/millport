@@ -21,8 +21,8 @@
             margin-bottom: 0;
             display: table;
         }
-        #dataTable th:not(.sticky):not(.sticky-2):not(:last-child),
-        #dataTable td:not(.sticky):not(.sticky-2):not(:last-child) {
+        #dataTable th:not(.sticky):not(.sticky-2):not(.sticky-3):not(:last-child),
+        #dataTable td:not(.sticky):not(.sticky-2):not(.sticky-3):not(:last-child) {
             width: 100px;
             min-width: 100px;
             max-width: 100px;
@@ -39,12 +39,20 @@
             background: #fff;
             z-index: 2;
         }
+        th.sticky-3, td.sticky-3 {
+            position: sticky;
+            left: 144px;
+            background: #fff;
+            z-index: 2;
+        }
         tbody tr:hover td.sticky,
-        tbody tr:hover td.sticky-2 {
+        tbody tr:hover td.sticky-2,
+        tbody tr:hover td.sticky-3 {
             z-index: 10001;
         }
         th.sticky.sticky-header,
-        th.sticky-2.sticky-header {
+        th.sticky-2.sticky-header,
+        th.sticky-3.sticky-header {
             z-index: 1002;
         }
         td.sticky {
@@ -56,7 +64,13 @@
         td.sticky-2 input {
             font-size: 0.875rem;
         }
-        td.sticky, td.sticky-2 {
+        td.sticky-3 {
+            padding: 0.25rem !important;
+        }
+        td.sticky-3 input {
+            font-size: 0.875rem;
+        }
+        td.sticky, td.sticky-2, td.sticky-3 {
             overflow: visible;
         }
         .fill-btn-container {
@@ -79,6 +93,9 @@
             top: 0;
             background: #f8f9fa;
             z-index: 1000;
+        }
+        #column-controls th.sticky-header {
+            top: 77px;
         }
         .toolbar {
             margin-bottom: 1rem;
@@ -133,7 +150,7 @@
         tbody tr:hover {
             z-index: 10000;
         }
-        tbody tr:hover td:not(.sticky):not(.sticky-2) {
+        tbody tr:hover td:not(.sticky):not(.sticky-2):not(.sticky-3) {
             position: relative;
             z-index: 10001;
         }
@@ -243,7 +260,7 @@
     </div>
     <input type="file" id="fileInput" accept=".csv" style="display: none;">
     <div class="table-responsive" style="overflow-x: auto;">
-        <table class="table table-bordered align-middle" id="dataTable" style="width: 1200px; table-layout: fixed;">
+        <table class="table table-bordered align-middle" id="dataTable" style="width: 1284px; table-layout: fixed;">
             <thead>
                 <tr>
                     <th class="sticky sticky-header" style="width: 60px;"></th>
@@ -252,11 +269,13 @@
                             <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
                         </div>
                     </th>
+                    <th class="sticky-3 sticky-header" style="width: 84px;"></th>
                     <!-- Dynamic column headers here -->
                 </tr>
                 <tr id="column-controls">
-                    <th class="sticky" style="width: 60px;">No.</th>
-                    <th class="sticky-2" style="width: 84px;">Height</th>
+                    <th class="sticky sticky-header" style="width: 60px;">No.</th>
+                    <th class="sticky-2 sticky-header" style="width: 84px;">Height</th>
+                    <th class="sticky-3 sticky-header" style="width: 84px;">Length</th>
                     <!-- Dynamic column controls here -->
                 </tr>
             </thead>
@@ -329,6 +348,7 @@ function getInitialRows() {
 function createEmptyRow() {
     return {
         height: '',
+        length: '',
         data: Array(NUM_DATA_COLS).fill('')
     };
 }
@@ -360,6 +380,12 @@ function loadFromStorage() {
                 col.color = DEFAULT_COLOURS[i];
             }
         });
+        // Ensure length field exists (for backwards compatibility)
+        dataRows.forEach(row => {
+            if (row.length === undefined) {
+                row.length = '';
+            }
+        });
         document.getElementById('chartDatum').value = chartDatum;
         document.getElementById('teamName').value = teamName;
         return true;
@@ -378,15 +404,15 @@ function clearPlot() {
 function exportToCSV() {
     // Build CSV content
     let csv = [];
-    // Header row: No., Height, column labels
-    let headerRow = ['No.', 'Height'].concat(dataCols.map(col => col.label || ''));
+    // Header row: No., Height, Length, column labels
+    let headerRow = ['No.', 'Height', 'Length'].concat(dataCols.map(col => col.label || ''));
     csv.push(headerRow.join(','));
-    // Type row: empty, empty, column types
-    let typeRow = ['', ''].concat(dataCols.map(col => col.type));
+    // Type row: empty, empty, empty, column types
+    let typeRow = ['', '', ''].concat(dataCols.map(col => col.type));
     csv.push(typeRow.join(','));
     // Data rows
     dataRows.forEach((row, idx) => {
-        let dataRow = [idx + 1, row.height].concat(row.data);
+        let dataRow = [idx + 1, row.height, row.length].concat(row.data);
         csv.push(dataRow.join(','));
     });
     // Create download
@@ -416,15 +442,19 @@ function importFromCSV(file) {
                 alert('Invalid CSV format: must have at least 2 columns');
                 return;
             }
+            // Check if this is the new format (with Length column) or old format
+            const hasLengthColumn = headers.length >= 3 && (headers[2].toLowerCase() === 'length' || headers.length > 10);
+            const dataStartCol = hasLengthColumn ? 3 : 2;
+            
             // Parse type row
             const types = lines[1].split(',').map(t => t.trim());
             // Initialize columns
             dataCols = getInitialCols();
-            for (let i = 2; i < headers.length && i - 2 < NUM_DATA_COLS; i++) {
-                dataCols[i - 2].label = headers[i] || '';
+            for (let i = dataStartCol; i < headers.length && i - dataStartCol < NUM_DATA_COLS; i++) {
+                dataCols[i - dataStartCol].label = headers[i] || '';
                 const importedType = (types[i] || 'count').toLowerCase();
                 // Normalize type to match dropdown values
-                dataCols[i - 2].type = importedType === '% cover' || importedType.includes('cover') ? '% cover' : 'count';
+                dataCols[i - dataStartCol].type = importedType === '% cover' || importedType.includes('cover') ? '% cover' : 'count';
             }
             // Parse data rows
             dataRows = [];
@@ -432,11 +462,12 @@ function importFromCSV(file) {
                 const cols = lines[i].split(',').map(c => c.trim());
                 if (cols.length < 2) continue;
                 const height = cols[1];
+                const length = hasLengthColumn && cols.length > 2 ? cols[2] : '';
                 const data = Array(NUM_DATA_COLS).fill('');
-                for (let j = 2; j < cols.length && j - 2 < NUM_DATA_COLS; j++) {
-                    data[j - 2] = cols[j] || '';
+                for (let j = dataStartCol; j < cols.length && j - dataStartCol < NUM_DATA_COLS; j++) {
+                    data[j - dataStartCol] = cols[j] || '';
                 }
-                dataRows.push({ height, data });
+                dataRows.push({ height, length, data });
             }
             if (dataRows.length === 0) {
                 dataRows = [createEmptyRow()];
@@ -460,6 +491,50 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     const colLabels = [];
     const datumOffset = parseFloat(document.getElementById('chartDatum').value) || 0;
     const plotTitle = document.getElementById('teamName').value.trim() || 'Kite Diagrams by Column';
+    
+    // Add shore profile trace (Length vs Height)
+    const profileHeights = [];
+    const profileLengths = [];
+    for (let j = 0; j < dataRows.length; ++j) {
+        let h = dataRows[j].height;
+        let len = dataRows[j].length;
+        if (h !== '' && !isNaN(h) && len !== '' && !isNaN(len)) {
+            profileHeights.push(parseFloat(h) + datumOffset);
+            profileLengths.push(parseFloat(len));
+        }
+    }
+    
+    if (profileHeights.length > 0) {
+        // Sort by height
+        const zipped = profileHeights.map((h, idx) => [h, profileLengths[idx]]).sort((a, b) => a[0] - b[0]);
+        const sortedHeights = zipped.map(z => z[0]);
+        const sortedLengths = zipped.map(z => z[1]);
+        
+        // Scale lengths to fit in the plot (position at x = -1 with width of 0.8)
+        const maxLength = Math.max(...sortedLengths);
+        const lengthScale = maxLength > 0 ? 0.8 / maxLength : 0.8;
+        const xProfile = sortedLengths.map(l => -1.5 + l * lengthScale);
+        
+        // Create closed polygon: baseline, up the profile, back down the baseline
+        const xPoly = [-1.5].concat(xProfile, [-1.5]);
+        const yPoly = [sortedHeights[0]].concat(sortedHeights, [sortedHeights[sortedHeights.length - 1]]);
+        
+        traces.push({
+            type: 'scatter',
+            x: xPoly,
+            y: yPoly,
+            fill: 'toself',
+            name: 'Shore profile',
+            mode: 'lines',
+            line: { shape: 'linear', color: '#8B7355', width: 2 },
+            fillcolor: '#8B7355',
+            hovertemplate: 'Height: %{y}<br>Length: %{customdata}',
+            customdata: [sortedLengths[0]].concat(sortedLengths, [sortedLengths[sortedLengths.length - 1]]),
+            showlegend: true,
+            opacity: 0.8
+        });
+    }
+    
     // Find all columns with labels
     for (let i = 0; i < dataCols.length; ++i) {
         const label = dataCols[i].label.trim();
@@ -573,7 +648,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
             ticktext: colLabels,
             tickangle: -45,
             zeroline: false,
-            range: n > 0 ? [-0.5, n - 0.5] : undefined
+            range: n > 0 ? [-2, n - 0.5] : [-2, 0.5]
         },
         margin: { t: 40, b: 100, l: 60, r: 10 },
         height: 440,
@@ -596,6 +671,7 @@ function renderTable() {
                     <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
                 </div>
             </th>
+            <th class="sticky-3 sticky-header" style="width: 84px;"></th>
             ${dataCols.map((col, i) => `
                 <th class="sticky-header" style="width: 100px;">
                     <input type="text" class="form-control form-control-sm mb-1" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
@@ -603,24 +679,22 @@ function renderTable() {
                 </th>`).join('')}
             <th class="sticky-header" style="width: 48px;"></th>
         `;
-        // Second header row: No., Height, then column type dropdowns
+        // Second header row: No., Height, Length, then column type dropdowns
         theadRows[1].innerHTML = `
-            <th class="sticky" style="width: 60px; position: relative; overflow: visible;">
+            <th class="sticky sticky-header" style="width: 60px;">
                 No.
-                <button class="header-insert-btn" onclick="insertRowAtTop()" title="Insert row at top">
-                    <i class="bi bi-plus" style="line-height: 1;"></i>
-                </button>
             </th>
-            <th class="sticky-2" style="width: 84px;">Height</th>
+            <th class="sticky-2 sticky-header" style="width: 84px;">Height</th>
+            <th class="sticky-3 sticky-header" style="width: 84px;">Length</th>
             ${dataCols.map((col, i) => `
-                <th style="width: 100px;">
+                <th class="sticky-header" style="width: 100px;">
                     <select class="form-select form-select-sm" data-col-idx="${i}" onchange="onColTypeChange(event)">
                         <option value="count"${col.type==='count'?' selected':''}>count</option>
                         <option value="% cover"${col.type==='% cover'?' selected':''}>% cover</option>
                     </select>
                 </th>
             `).join('')}
-            <th></th>
+            <th class="sticky-header"></th>
         `;
     }
     // Render rows
@@ -638,6 +712,10 @@ function renderTable() {
             <td class="sticky-2">
                 <input type="number" class="form-control form-control-sm" min="0" step="0.01" value="${row.height}"
                     data-row-idx="${rowIdx}" onchange="onHeightChange(event)">
+            </td>
+            <td class="sticky-3">
+                <input type="number" class="form-control form-control-sm" min="0" step="0.01" value="${row.length}"
+                    data-row-idx="${rowIdx}" onchange="onLengthChange(event)">
             </td>
             ${row.data.map((val, colIdx) => `
                 <td>
@@ -686,6 +764,14 @@ window.onHeightChange = function(e) {
     if (val === '' || isNaN(val)) val = '';
     else val = Math.max(0, parseFloat(val));
     dataRows[rowIdx].height = val;
+    saveToStorage();
+};
+window.onLengthChange = function(e) {
+    const rowIdx = +e.target.getAttribute('data-row-idx');
+    let val = e.target.value;
+    if (val === '' || isNaN(val)) val = '';
+    else val = Math.max(0, parseFloat(val));
+    dataRows[rowIdx].length = val;
     saveToStorage();
 };
 window.onDataCellChange = function(e) {
@@ -849,9 +935,11 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
         dataCols[i].type = types[i];
     }
     dataRows = [];
+    let cumulativeLength = 0;
     for (let i = 0; i < 20; ++i) {
         const height = +(i * 0.4).toFixed(2);
-        let row = { height: height, data: Array(NUM_DATA_COLS).fill('') };
+        const length = +cumulativeLength.toFixed(2);
+        let row = { height: height, length: length, data: Array(NUM_DATA_COLS).fill('') };
         // Col 1: normal(mean=height*12.5, sd=10), truncated 0-100, 1dp
         row.data[0] = sampleNormalTrunc(height*12.5, 10, 0, 100, 1);
         // Col 2: normal(mean=8-height*12.5, sd=10), truncated 0-100, 1dp
@@ -865,6 +953,8 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
         // Col 6: poisson(mean=height)
         row.data[5] = samplePoisson(height);
         dataRows.push(row);
+        // Add random increment for next row (uniform between 0.1 and 2.0)
+        cumulativeLength += Math.random() * 1.9 + 0.1;
     }
     if (dataRows.length === 0) dataRows = [createEmptyRow()];
     renderTable();
