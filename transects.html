@@ -318,6 +318,13 @@
             background: #6c757d;
             border-radius: 2px;
         }
+        /* Modal z-index fix for sticky headers */
+        .modal-backdrop {
+            z-index: 10100 !important;
+        }
+        .modal {
+            z-index: 10200 !important;
+        }
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button {
@@ -739,12 +746,13 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     const n = colLabels.length;
     Plotly.newPlot('plotPane', traces, {
         title: plotTitle,
-        yaxis: { title: 'Height (m)' },
+        yaxis: { title: 'Absolute Height (m)' },
         xaxis: {
             tickvals: colLabels.map((_, i) => i + 0.4),
             ticktext: colLabels,
             tickangle: -45,
             zeroline: false,
+            showline: false,
             range: n > 0 ? [-0.1, n + 0.3] : [-0.1, 0.7]
         },
         margin: { t: 40, b: 100, l: 60, r: 10 },
@@ -777,11 +785,16 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         const sortedDistances = zipped.map(z => z[0]);
         const sortedHeights = zipped.map(z => z[1]);
         
+        // Create filled area from minimum y to profile line
+        const minHeight = Math.min(...sortedHeights);
+        const xPoly = [sortedDistances[0]].concat(sortedDistances, [sortedDistances[sortedDistances.length - 1]]);
+        const yPoly = [minHeight].concat(sortedHeights, [minHeight]);
+        
         Plotly.newPlot('profilePlotPane', [{
             type: 'scatter',
-            x: sortedDistances,
-            y: sortedHeights,
-            fill: 'tozeroy',
+            x: xPoly,
+            y: yPoly,
+            fill: 'toself',
             mode: 'lines',
             line: { shape: 'linear', color: '#8B7355', width: 2 },
             fillcolor: 'rgba(139, 115, 85, 0.5)',
@@ -790,7 +803,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         }], {
             title: 'Shore Profile',
             xaxis: { title: 'Distance (m)', zeroline: false },
-            yaxis: { title: 'Height (m)', zeroline: false },
+            yaxis: { title: 'Absolute Height (m)', zeroline: false },
             margin: { t: 40, b: 50, l: 60, r: 10 },
             height: 170,
             plot_bgcolor: '#fff',
@@ -1109,8 +1122,8 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
         // Col 6: poisson(mean=height)
         row.data[5] = samplePoisson(height);
         dataRows.push(row);
-        // Add random increment for next row (uniform between 0.1 and 2.0)
-        cumulativeLength += Math.random() * 1.9 + 0.1;
+        // Add random increment for next row (uniform between -0.5 and 2.0)
+        cumulativeLength += Math.random() * 1.8 + 0.2;
     }
     if (dataRows.length === 0) dataRows = [createEmptyRow()];
     renderTable();
