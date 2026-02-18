@@ -185,6 +185,7 @@
             height: var(--row-height-data) !important;
             min-height: var(--row-height-data) !important;
             max-height: var(--row-height-data) !important;
+            overflow: visible;
         }
         td.sticky {
             padding-left: 5px !important;
@@ -221,19 +222,29 @@
         tbody tr {
             position: relative;
             z-index: 1;
+            overflow: visible;
+        }
+        tbody tr:hover {
+            z-index: 10001;
         }
         tbody tr:hover td:not(.sticky):not(.sticky-2):not(.sticky-3) {
             position: relative;
             z-index: 100;
         }
+        tbody tr:hover td.sticky,
+        tbody tr:hover td.sticky-2,
+        tbody tr:hover td.sticky-3 {
+            z-index: 10005;
+        }
         tbody {
             position: relative;
             display: table-row-group;
+            overflow: visible;
         }
         .insert-row-btn {
             position: absolute;
-            bottom: -15px;
-            left: 25px;
+            bottom: 0;
+            left: 30px;
             width: 20px;
             height: 20px;
             padding: 0;
@@ -246,7 +257,7 @@
             cursor: pointer;
             opacity: 0;
             transition: opacity 0.2s;
-            z-index: 10002;
+            z-index: 10006;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             pointer-events: auto;
             transform: translate(-50%, 50%);
@@ -255,7 +266,7 @@
             background: #218838;
         }
         tbody tr:hover .insert-row-btn {
-            opacity: 0;
+            opacity: 1;
         }
         th.sticky .header-insert-btn {
             position: absolute;
@@ -380,6 +391,9 @@
                         <div class="header-row-1"></div>
                         <div class="header-row-2"></div>
                         <div class="header-row-3">No.</div>
+                        <button class="header-insert-btn" onclick="insertRowAtTop()" title="Insert row at top">
+                            <i class="bi bi-plus" style="line-height: 1;"></i>
+                        </button>
                     </th>
                     <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
                         <div class="header-row-1"></div>
@@ -643,7 +657,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
             const zipped = heights.map((h, idx) => [h, values[idx]]).sort((a, b) => a[0] - b[0]);
             const sortedHeights = zipped.map(z => z[0]);
             const sortedValues = zipped.map(z => z[1]);
-            const xCenter = plotIdx;
+            const xCenter = plotIdx + 0.4;
             const maxVal = Math.max(...sortedValues);
             const scale = maxVal > 0 ? 0.4 / maxVal : 0.4;
             if (colType === 'count') {
@@ -727,11 +741,11 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         title: plotTitle,
         yaxis: { title: 'Height (m)' },
         xaxis: {
-            tickvals: colLabels.map((_, i) => i),
+            tickvals: colLabels.map((_, i) => i + 0.4),
             ticktext: colLabels,
             tickangle: -45,
             zeroline: false,
-            range: n > 0 ? [0, n - 0.5] : [0, 0.5]
+            range: n > 0 ? [-0.1, n + 0.3] : [-0.1, 0.7]
         },
         margin: { t: 40, b: 100, l: 60, r: 10 },
         height: 440,
@@ -798,6 +812,9 @@ function renderTable() {
                 <div class="header-row-1"></div>
                 <div class="header-row-2"></div>
                 <div class="header-row-3">No.</div>
+                <button class="header-insert-btn" onclick="insertRowAtTop()" title="Insert row at top">
+                    <i class="bi bi-plus" style="line-height: 1;"></i>
+                </button>
             </th>
             <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
                 <div class="header-row-1"></div>
@@ -843,10 +860,10 @@ function renderTable() {
             <td class="sticky table-data-cell">
                 <div class="cell-content">
                     <span class="row-number-cell">${rowIdx+1}</span>
-                    <button class="insert-row-btn" onclick="insertRowAfter(${rowIdx})" title="Insert row after">
-                        <i class="bi bi-plus" style="line-height: 1;"></i>
-                    </button>
                 </div>
+                <button class="insert-row-btn" onclick="insertRowAfter(${rowIdx})" title="Insert row after">
+                    <i class="bi bi-plus" style="line-height: 1;"></i>
+                </button>
             </td>
             <td class="sticky-2 table-data-cell">
                 <input type="number" class="form-control form-control-sm table-cell-input" min="0" step="0.01" value="${row.height}"
