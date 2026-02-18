@@ -8,11 +8,17 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
         :root {
-            --col-width-rownum: 60px;
-            --col-width-height: 84px;
-            --col-width-length: 84px;
-            --col-width-data: 125px;
-            --col-width-action: 48px;
+            --col-width-rownum: 45px;
+            --col-width-height: 64px;
+            --col-width-length: 64px;
+            --col-width-data: 120px;
+            --col-width-action: 40px;
+            --row-height-header-1: 40px;
+            --row-height-header-2: 40px;
+            --row-height-header-3: 40px;
+            --row-height-data: auto;
+            --plot-pane-height: 450px;
+            --profile-plot-height: 180px;
         }
         .table-responsive {
             max-height: 385px;
@@ -23,10 +29,12 @@
             overflow-anchor: none;
         }
         #dataTable {
-            table-layout: fixed;
+            table-layout: fixed !important;
             position: relative;
             margin-bottom: 0;
             display: table;
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
         }
         #dataTable th:not(.sticky):not(.sticky-2):not(.sticky-3):not(:last-child),
         #dataTable td:not(.sticky):not(.sticky-2):not(.sticky-3):not(:last-child) {
@@ -35,32 +43,44 @@
             max-width: var(--col-width-data);
         }
         th.sticky, td.sticky {
-            position: sticky;
-            left: 0;
+            position: sticky !important;
+            left: 0 !important;
             background: #fff;
-            z-index: 2;
+            z-index: 10002;
+            width: var(--col-width-rownum);
+            min-width: var(--col-width-rownum);
+            max-width: var(--col-width-rownum);
+            box-shadow: 0.5px 0 0 0 #dee2e6;
         }
         th.sticky-2, td.sticky-2 {
-            position: sticky;
-            left: var(--col-width-rownum);
+            position: sticky !important;
+            left: var(--col-width-rownum) !important;
             background: #fff;
-            z-index: 2;
+            z-index: 10002;
+            width: var(--col-width-height);
+            min-width: var(--col-width-height);
+            max-width: var(--col-width-height);
+            box-shadow: 0.5px 0 0 0 #dee2e6;
         }
         th.sticky-3, td.sticky-3 {
-            position: sticky;
-            left: calc(var(--col-width-rownum) + var(--col-width-height));
+            position: sticky !important;
+            left: calc(var(--col-width-rownum) + var(--col-width-height)) !important;
             background: #fff;
-            z-index: 2;
+            z-index: 10002;
+            width: var(--col-width-length);
+            min-width: var(--col-width-length);
+            max-width: var(--col-width-length);
+            box-shadow: 0.5px 0 0 0 #dee2e6;
         }
         tbody tr:hover td.sticky,
         tbody tr:hover td.sticky-2,
         tbody tr:hover td.sticky-3 {
-            z-index: 10001;
+            z-index: 10002;
         }
         th.sticky.sticky-header,
         th.sticky-2.sticky-header,
         th.sticky-3.sticky-header {
-            z-index: 1002;
+            z-index: 10003 !important;
         }
         td.sticky {
             padding: 0.25rem !important;
@@ -84,9 +104,10 @@
             display: flex;
             align-items: flex-end;
             justify-content: center;
+            width: 100%;
             height: 100%;
-            min-height: 60px;
             padding-bottom: 4px;
+            box-sizing: border-box;
         }
         .fill-btn {
             font-size: 0.75rem;
@@ -96,13 +117,42 @@
             vertical-align: bottom;
         }
         th.sticky-header {
-            position: sticky;
-            top: 0;
-            background: #f8f9fa;
-            z-index: 1000;
+            position: sticky !important;
+            top: 0 !important;
+            background: #f8f9fa !important;
+            z-index: 10001;
+            border: 0.5px solid #dee2e6;
+            height: calc(var(--row-height-header-1) + var(--row-height-header-2) + var(--row-height-header-3)) !important;
+            min-height: calc(var(--row-height-header-1) + var(--row-height-header-2) + var(--row-height-header-3)) !important;
+            max-height: calc(var(--row-height-header-1) + var(--row-height-header-2) + var(--row-height-header-3)) !important;
+            box-sizing: border-box !important;
+            padding: 0 !important;
+            vertical-align: top !important;
         }
-        #column-controls th.sticky-header {
-            top: 77px;
+        th.sticky-header .header-row-1,
+        th.sticky-header .header-row-2,
+        th.sticky-header .header-row-3 {
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+        }
+        th.sticky-header .header-row-1 {
+            height: var(--row-height-header-1);
+            min-height: var(--row-height-header-1);
+            max-height: var(--row-height-header-1);
+        }
+        th.sticky-header .header-row-2 {
+            height: var(--row-height-header-2);
+            min-height: var(--row-height-header-2);
+            max-height: var(--row-height-header-2);
+        }
+        th.sticky-header .header-row-3 {
+            height: var(--row-height-header-3);
+            min-height: var(--row-height-header-3);
+            max-height: var(--row-height-header-3);
         }
         .toolbar {
             margin-bottom: 1rem;
@@ -114,9 +164,27 @@
         .table thead th {
             vertical-align: middle;
         }
+        .table thead {
+            display: table-header-group;
+        }
+        .table thead tr {
+            display: table-row;
+        }
+        .table thead tr th {
+            height: calc(var(--row-height-header-1) + var(--row-height-header-2) + var(--row-height-header-3)) !important;
+            min-height: calc(var(--row-height-header-1) + var(--row-height-header-2) + var(--row-height-header-3)) !important;
+            max-height: calc(var(--row-height-header-1) + var(--row-height-header-2) + var(--row-height-header-3)) !important;
+        }
         .table tbody td {
             vertical-align: middle;
             overflow: visible;
+            border: 0.5px solid #dee2e6;
+            height: var(--row-height-data);
+        }
+        .table tbody tr {
+            height: var(--row-height-data) !important;
+            min-height: var(--row-height-data) !important;
+            max-height: var(--row-height-data) !important;
         }
         td.sticky {
             padding-left: 5px !important;
@@ -154,12 +222,9 @@
             position: relative;
             z-index: 1;
         }
-        tbody tr:hover {
-            z-index: 10000;
-        }
         tbody tr:hover td:not(.sticky):not(.sticky-2):not(.sticky-3) {
             position: relative;
-            z-index: 10001;
+            z-index: 100;
         }
         tbody {
             position: relative;
@@ -223,8 +288,8 @@
             height: 8px;
             background: #e9ecef;
             cursor: ns-resize;
-            border-top: 1px solid #dee2e6;
-            border-bottom: 1px solid #dee2e6;
+            border-top: 0.5px solid #dee2e6;
+            border-bottom: 0.5px solid #dee2e6;
             position: relative;
             user-select: none;
         }
@@ -308,23 +373,29 @@
     </div>
     <input type="file" id="fileInput" accept=".csv" style="display: none;">
     <div class="table-responsive" style="overflow-x: auto;">
-        <table class="table table-bordered align-middle" id="dataTable" style="width: 1284px; table-layout: fixed;">
+        <table class="table table-bordered align-middle" id="dataTable" style="table-layout: fixed;">
             <thead>
                 <tr>
-                    <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);"></th>
-                    <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
-                        <div class="fill-btn-container">
-                            <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
-                        </div>
+                    <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);">
+                        <div class="header-row-1"></div>
+                        <div class="header-row-2"></div>
+                        <div class="header-row-3">No.</div>
                     </th>
-                    <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);"></th>
+                    <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
+                        <div class="header-row-1"></div>
+                        <div class="header-row-2">
+                            <div class="fill-btn-container">
+                                <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
+                            </div>
+                        </div>
+                        <div class="header-row-3">Height</div>
+                    </th>
+                    <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);">
+                        <div class="header-row-1"></div>
+                        <div class="header-row-2"></div>
+                        <div class="header-row-3">Length</div>
+                    </th>
                     <!-- Dynamic column headers here -->
-                </tr>
-                <tr id="column-controls">
-                    <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);">No.</th>
-                    <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">Height</th>
-                    <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);">Length</th>
-                    <!-- Dynamic column controls here -->
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -337,8 +408,11 @@
         <div class="d-flex justify-content-between mb-2">
             <button id="plotDataBtn" class="btn btn-success">Plot Data</button>
         </div>
-        <div id="plotPane" class="border bg-white w-100" style="height: 450px; color: #aaa;">
+        <div id="plotPane" class="border bg-white w-100" style="height: var(--plot-pane-height); color: #aaa;">
             <span>Plot will appear here.</span>
+        </div>
+        <div id="profilePlotPane" class="border bg-white w-100 mt-2" style="height: var(--profile-plot-height); color: #aaa;">
+            <span>Shore profile will appear here.</span>
         </div>
     </div>
 </div>
@@ -446,6 +520,8 @@ function loadFromStorage() {
 function clearPlot() {
     Plotly.purge('plotPane');
     document.getElementById('plotPane').innerHTML = '<span>Plot will appear here.</span>';
+    Plotly.purge('profilePlotPane');
+    document.getElementById('profilePlotPane').innerHTML = '<span>Shore profile will appear here.</span>';
 }
 
 // --- Export/Import helpers ---
@@ -539,49 +615,6 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     const colLabels = [];
     const datumOffset = parseFloat(document.getElementById('chartDatum').value) || 0;
     const plotTitle = document.getElementById('teamName').value.trim() || 'Kite Diagrams by Column';
-    
-    // Add shore profile trace (Length vs Height)
-    const profileHeights = [];
-    const profileLengths = [];
-    for (let j = 0; j < dataRows.length; ++j) {
-        let h = dataRows[j].height;
-        let len = dataRows[j].length;
-        if (h !== '' && !isNaN(h) && len !== '' && !isNaN(len)) {
-            profileHeights.push(parseFloat(h) + datumOffset);
-            profileLengths.push(parseFloat(len));
-        }
-    }
-    
-    if (profileHeights.length > 0) {
-        // Sort by height
-        const zipped = profileHeights.map((h, idx) => [h, profileLengths[idx]]).sort((a, b) => a[0] - b[0]);
-        const sortedHeights = zipped.map(z => z[0]);
-        const sortedLengths = zipped.map(z => z[1]);
-        
-        // Scale lengths to fit in the plot (position at x = -1 with width of 0.8)
-        const maxLength = Math.max(...sortedLengths);
-        const lengthScale = maxLength > 0 ? 0.8 / maxLength : 0.8;
-        const xProfile = sortedLengths.map(l => -1.5 + l * lengthScale);
-        
-        // Create closed polygon: baseline, up the profile, back down the baseline
-        const xPoly = [-1.5].concat(xProfile, [-1.5]);
-        const yPoly = [sortedHeights[0]].concat(sortedHeights, [sortedHeights[sortedHeights.length - 1]]);
-        
-        traces.push({
-            type: 'scatter',
-            x: xPoly,
-            y: yPoly,
-            fill: 'toself',
-            name: 'Shore profile',
-            mode: 'lines',
-            line: { shape: 'linear', color: '#8B7355', width: 2 },
-            fillcolor: '#8B7355',
-            hovertemplate: 'Height: %{y}<br>Length: %{customdata}',
-            customdata: [sortedLengths[0]].concat(sortedLengths, [sortedLengths[sortedLengths.length - 1]]),
-            showlegend: true,
-            opacity: 0.8
-        });
-    }
     
     // Find all columns with labels
     for (let i = 0; i < dataCols.length; ++i) {
@@ -681,6 +714,8 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
     if (traces.length === 0) {
         Plotly.purge('plotPane');
         document.getElementById('plotPane').innerHTML = '<span>No data to plot.</span>';
+        Plotly.purge('profilePlotPane');
+        document.getElementById('profilePlotPane').innerHTML = '<span>No height/length data to plot.</span>';
         return;
     }
     // Clear any existing plot to ensure clean redraw
@@ -696,7 +731,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
             ticktext: colLabels,
             tickangle: -45,
             zeroline: false,
-            range: n > 0 ? [-2, n - 0.5] : [-2, 0.5]
+            range: n > 0 ? [0, n - 0.5] : [0, 0.5]
         },
         margin: { t: 40, b: 100, l: 60, r: 10 },
         height: 440,
@@ -705,44 +740,100 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         showlegend: true,
         autosize: true
     }, {responsive: true});
+    
+    // Plot shore profile separately
+    const profileHeights = [];
+    const profileDistances = [];
+    for (let j = 0; j < dataRows.length; ++j) {
+        let h = dataRows[j].height;
+        let len = dataRows[j].length;
+        if (h !== '' && !isNaN(h) && len !== '' && !isNaN(len)) {
+            h = parseFloat(h);
+            len = parseFloat(len);
+            // Calculate horizontal distance: sqrt(length^2 - height^2)
+            const distance = Math.sqrt(len * len - h * h);
+            profileHeights.push(h + datumOffset);
+            profileDistances.push(distance);
+        }
+    }
+    
+    if (profileHeights.length > 0) {
+        // Sort by distance (x-axis)
+        const zipped = profileDistances.map((dist, idx) => [dist, profileHeights[idx]]).sort((a, b) => a[0] - b[0]);
+        const sortedDistances = zipped.map(z => z[0]);
+        const sortedHeights = zipped.map(z => z[1]);
+        
+        Plotly.newPlot('profilePlotPane', [{
+            type: 'scatter',
+            x: sortedDistances,
+            y: sortedHeights,
+            fill: 'tozeroy',
+            mode: 'lines',
+            line: { shape: 'linear', color: '#8B7355', width: 2 },
+            fillcolor: 'rgba(139, 115, 85, 0.5)',
+            hovertemplate: 'Distance: %{x:.2f}<br>Height: %{y:.2f}<extra></extra>',
+            showlegend: false
+        }], {
+            title: 'Shore Profile',
+            xaxis: { title: 'Distance (m)', zeroline: false },
+            yaxis: { title: 'Height (m)', zeroline: false },
+            margin: { t: 40, b: 50, l: 60, r: 10 },
+            height: 170,
+            plot_bgcolor: '#fff',
+            paper_bgcolor: '#fff',
+            autosize: true
+        }, {responsive: true});
+    } else {
+        Plotly.purge('profilePlotPane');
+        document.getElementById('profilePlotPane').innerHTML = '<span>No height/length data to plot.</span>';
+    }
 });
 
 function renderTable() {
-    // Render column headers (first row: empty for first two columns)
+    // Render single header row with 3 internal containers per cell
     const theadRows = document.querySelectorAll('#dataTable thead tr');
-    if (theadRows.length >= 2) {
-        // First header row: empty for first two columns, then column label inputs
+    if (theadRows.length >= 1) {
         theadRows[0].innerHTML = `
-            <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);"></th>
-            <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
-                <div class="fill-btn-container">
-                    <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill Down</button>
-                </div>
-            </th>
-            <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);"></th>
-            ${dataCols.map((col, i) => `
-                <th class="sticky-header table-header-cell" style="width: var(--col-width-data);">
-                    <input type="text" class="form-control form-control-sm mb-1 table-cell-input" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
-                    <input type="color" class="form-control form-control-sm form-control-color" value="${col.color}" data-col-idx="${i}" onchange="onColColorChange(event)" style="height: 30px;">
-                </th>`).join('')}
-            <th class="sticky-header table-header-cell" style="width: var(--col-width-action);"></th>
-        `;
-        // Second header row: No., Height, Length, then column type dropdowns
-        theadRows[1].innerHTML = `
             <th class="sticky sticky-header table-header-cell" style="width: var(--col-width-rownum);">
-                No.
+                <div class="header-row-1"></div>
+                <div class="header-row-2"></div>
+                <div class="header-row-3">No.</div>
             </th>
-            <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">Height</th>
-            <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);">Length</th>
+            <th class="sticky-2 sticky-header table-header-cell" style="width: var(--col-width-height);">
+                <div class="header-row-1"></div>
+                <div class="header-row-2">
+                    <div class="fill-btn-container">
+                        <button id="fillHeightsBtn" class="btn btn-outline-secondary btn-sm fill-btn" onclick="fillHeights()">Fill</button>
+                    </div>
+                </div>
+                <div class="header-row-3">Height</div>
+            </th>
+            <th class="sticky-3 sticky-header table-header-cell" style="width: var(--col-width-length);">
+                <div class="header-row-1"></div>
+                <div class="header-row-2"></div>
+                <div class="header-row-3">Length</div>
+            </th>
             ${dataCols.map((col, i) => `
                 <th class="sticky-header table-header-cell" style="width: var(--col-width-data);">
-                    <select class="form-select form-select-sm table-cell-input" data-col-idx="${i}" onchange="onColTypeChange(event)">
-                        <option value="count"${col.type==='count'?' selected':''}>count</option>
-                        <option value="% cover"${col.type==='% cover'?' selected':''}>% cover</option>
-                    </select>
+                    <div class="header-row-1">
+                        <input type="text" class="form-control form-control-sm table-cell-input" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
+                    </div>
+                    <div class="header-row-2">
+                        <input type="color" class="form-control form-control-sm form-control-color" value="${col.color}" data-col-idx="${i}" onchange="onColColorChange(event)" style="height: 26px;">
+                    </div>
+                    <div class="header-row-3">
+                        <select class="form-select form-select-sm table-cell-input" data-col-idx="${i}" onchange="onColTypeChange(event)">
+                            <option value="count"${col.type==='count'?' selected':''}>count</option>
+                            <option value="% cover"${col.type==='% cover'?' selected':''}>% cover</option>
+                        </select>
+                    </div>
                 </th>
             `).join('')}
-            <th class="sticky-header table-header-cell"></th>
+            <th class="sticky-header table-header-cell" style="width: var(--col-width-action);">
+                <div class="header-row-1"></div>
+                <div class="header-row-2"></div>
+                <div class="header-row-3"></div>
+            </th>
         `;
     }
     // Render rows
