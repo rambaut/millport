@@ -385,11 +385,13 @@
         <div>
             <button id="exportBtn" class="btn btn-outline-primary me-2">Export Data</button>
             <button id="importBtn" class="btn btn-outline-primary me-2">Import Data</button>
+            <button id="combineBtn" class="btn btn-outline-success me-2">Combine CSVs</button>
             <button id="clearBtn" class="btn btn-outline-danger me-2">Clear</button>
             <button id="testDataBtn" class="btn btn-outline-secondary">Test Data</button>
         </div>
     </div>
     <input type="file" id="fileInput" accept=".csv" style="display: none;">
+    <input type="file" id="combineFileInput" accept=".csv" multiple style="display: none;">
     <div class="table-responsive" style="overflow-x: auto;">
         <table class="table table-bordered align-middle" id="dataTable" style="table-layout: fixed;">
             <thead>
@@ -566,9 +568,125 @@ function exportToCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'transects.csv';
+    const rawName = (document.getElementById('teamName').value || '').trim();
+    const safeName = rawName
+        .replace(/[\\/:"*?<>|]/g, '')   // strip filesystem-unsafe chars
+        .replace(/\s+/g, '_')            // whitespace → underscore
+        .replace(/^[.\-]+|[.\-]+$/g, '') // strip leading/trailing dots and dashes
+        || 'transects';
+    a.download = safeName + '_transects.csv';
     a.click();
     URL.revokeObjectURL(url);
+}
+
+// --- Combine multiple CSVs ---
+function combineFromCSVFiles(files) {
+    if (!files || files.length === 0) return;
+
+    // Validate that the table has column headers and height rows set up
+    const hasColumns = dataCols.some(col => col.label.trim() !== '');
+    const hasRows = dataRows.length > 0 && dataRows.some(row => row.height !== '' && !isNaN(parseFloat(row.height)));
+    if (!hasColumns || !hasRows) {
+        alert('Please set up column headings and row heights in the table before combining CSV files.');
+        return;
+    }
+
+    // Build accumulator: accumulator[rowIdx][colIdx] = [values...]
+    const accumulator = dataRows.map(() => Array.from({length: NUM_DATA_COLS}, () => []));
+    let filesLoaded = 0;
+    let filesTotal = files.length;
+    let filesErrored = 0;
+
+    // Build a lookup: normalised label -> dataCols index
+    function normalise(s) { return (s || '').trim().toLowerCase(); }
+    const colLabelMap = {};
+    dataCols.forEach((col, i) => {
+        const n = normalise(col.label);
+        if (n) colLabelMap[n] = i;
+    });
+
+    function onAllLoaded() {
+        // Compute means and update dataRows
+        dataRows.forEach((row, rIdx) => {
+            for (let cIdx = 0; cIdx < NUM_DATA_COLS; cIdx++) {
+                const vals = accumulator[rIdx][cIdx].filter(v => v !== '' && !isNaN(v));
+                if (vals.length > 0) {
+                    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+                    row.data[cIdx] = Math.round(mean * 100) / 100;
+                }
+                // Leave existing value if no data was accumulated
+            }
+        });
+        renderTable();
+        saveToStorage();
+        clearPlot();
+        document.getElementById('plotDataBtn').click();
+        const msg = filesErrored > 0
+            ? `Combined ${filesLoaded} of ${filesTotal} files (${filesErrored} could not be parsed).`
+            : `Combined ${filesLoaded} file${filesLoaded !== 1 ? 's' : ''} successfully.`;
+        alert(msg);
+    }
+
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const content = e.target.result;
+                const lines = content.split(/\r?\n/).filter(line => line.trim());
+                if (lines.length < 3) { filesErrored++; if (++filesLoaded + filesErrored === filesTotal) onAllLoaded(); return; }
+
+                const headers = lines[0].split(',').map(h => h.trim());
+                const hasLength = headers.length >= 3 && normalise(headers[2]) === 'length';
+                const dataStartCol = hasLength ? 3 : 2;
+
+                // Map file column indices to dataCols indices
+                const fileColToDataCol = {};
+                for (let i = dataStartCol; i < headers.length; i++) {
+                    const n = normalise(headers[i]);
+                    if (n && colLabelMap.hasOwnProperty(n)) {
+                        fileColToDataCol[i] = colLabelMap[n];
+                    }
+                }
+
+                // Parse each data row and accumulate
+                for (let li = 2; li < lines.length; li++) {
+                    const cols = lines[li].split(',').map(c => c.trim());
+                    if (cols.length < 2) continue;
+                    const fileHeight = parseFloat(cols[1]);
+                    if (isNaN(fileHeight)) continue;
+
+                    // Find closest row in dataRows by height
+                    let closestIdx = 0;
+                    let closestDist = Infinity;
+                    dataRows.forEach((row, rIdx) => {
+                        const rh = parseFloat(row.height);
+                        if (!isNaN(rh)) {
+                            const dist = Math.abs(rh - fileHeight);
+                            if (dist < closestDist) { closestDist = dist; closestIdx = rIdx; }
+                        }
+                    });
+
+                    // Accumulate values for matching columns
+                    for (const [fi, ci] of Object.entries(fileColToDataCol)) {
+                        const val = parseFloat(cols[parseInt(fi)]);
+                        if (!isNaN(val)) {
+                            accumulator[closestIdx][ci].push(val);
+                        }
+                    }
+                }
+
+                filesLoaded++;
+            } catch (err) {
+                filesErrored++;
+            }
+            if (filesLoaded + filesErrored === filesTotal) onAllLoaded();
+        };
+        reader.onerror = function() {
+            filesErrored++;
+            if (filesLoaded + filesErrored === filesTotal) onAllLoaded();
+        };
+        reader.readAsText(file);
+    });
 }
 
 function importFromCSV(file) {
@@ -1028,6 +1146,14 @@ document.getElementById('teamName').addEventListener('input', function() {
     saveToStorage();
 });
 
+document.getElementById('teamName').addEventListener('blur', function() {
+    if (!this.value.trim()) {
+        teamName = randomTeamName();
+        this.value = teamName;
+        saveToStorage();
+    }
+});
+
 // Table resize handle
 let isResizing = false;
 const resizeHandle = document.getElementById('resizeHandle');
@@ -1068,6 +1194,18 @@ document.getElementById('exportBtn').addEventListener('click', function() {
 // Import button logic
 document.getElementById('importBtn').addEventListener('click', function() {
     document.getElementById('fileInput').click();
+});
+
+document.getElementById('combineBtn').addEventListener('click', function() {
+    document.getElementById('combineFileInput').click();
+});
+
+document.getElementById('combineFileInput').addEventListener('change', function(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        combineFromCSVFiles(files);
+    }
+    e.target.value = '';
 });
 
 document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -1167,10 +1305,33 @@ function samplePoisson(lambda) {
     return k - 1;
 }
 
+// --- Random team name ---
+const TEAM_ADJECTIVES = [
+    'Bold', 'Brave', 'Bright', 'Calm', 'Clever', 'Coastal', 'Curious', 'Daring',
+    'Deep', 'Eager', 'Fleet', 'Gallant', 'Hardy', 'Keen', 'Mighty', 'Noble',
+    'Quick', 'Rocky', 'Salty', 'Sandy', 'Savvy', 'Sharp', 'Sleek', 'Speedy',
+    'Spiny', 'Splendid', 'Sprightly', 'Stalwart', 'Stout', 'Swift', 'Tidal',
+    'Tiny', 'Valiant', 'Vibrant', 'Wandering', 'Wild', 'Wise', 'Zesty'
+];
+const TEAM_NOUNS = [
+    'Anemones', 'Barnacles', 'Blennies', 'Chitons', 'Crabs', 'Cushionstars', 'Cuttlefish',
+    'Dogwhelks', 'Gobies', 'Hermits', 'Isopods', 'Jellyfish', 'Kelps', 'Limpets',
+    'Lobsters', 'Mussels', 'Nudibranchs', 'Otters', 'Periwinkles', 'Prawns', 'Puffins',
+    'Razorshells', 'Rockpools', 'Sandhoppers', 'Scallops', 'Seals', 'Shrimps', 'Snails',
+    'Starfish', 'Topshells', 'Urchins', 'Whelks', 'Winkles', 'Worms', 'Wrasse'
+];
+function randomTeamName() {
+    const adj = TEAM_ADJECTIVES[Math.floor(Math.random() * TEAM_ADJECTIVES.length)];
+    const noun = TEAM_NOUNS[Math.floor(Math.random() * TEAM_NOUNS.length)];
+    return adj + ' ' + noun;
+}
+
 // Initialize
 if (!loadFromStorage()) {
     dataCols = getInitialCols();
     dataRows = getInitialRows();
+    teamName = randomTeamName();
+    document.getElementById('teamName').value = teamName;
 } else {
     // Auto-plot the loaded data
     setTimeout(() => document.getElementById('plotDataBtn').click(), 100);
