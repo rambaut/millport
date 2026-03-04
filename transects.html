@@ -370,12 +370,22 @@
 </head>
 <body class="bg-light">
 <div class="container py-4" style="max-width: 1240px;">
+    <div class="mb-1">
+        <h6 class="mb-0 text-muted">Transect Data Entry</h6>
+    </div>
     <div class="toolbar d-flex justify-content-between align-items-center mb-2">
-        <div class="d-flex align-items-center">
-            <h4 class="mb-0 me-3">Transect Data Entry</h4>
-            <div class="d-flex align-items-center me-3">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center">
                 <label for="teamName" class="me-2 mb-0">Team:</label>
                 <input type="text" id="teamName" class="form-control form-control-sm" style="width: 150px;" placeholder="Team name">
+            </div>
+            <div class="d-flex align-items-center">
+                <label for="shoreType" class="me-2 mb-0">Shore:</label>
+                <select id="shoreType" class="form-select form-select-sm" style="width: 140px;">
+                    <option value="sheltered">Sheltered</option>
+                    <option value="semi-exposed" selected>Semi-exposed</option>
+                    <option value="exposed">Exposed</option>
+                </select>
             </div>
             <div class="d-flex align-items-center">
                 <label for="chartDatum" class="me-2 mb-0">Chart datum:</label>
@@ -475,6 +485,7 @@ const NUM_DATA_COLS = 8;
 let dataCols, dataRows;
 let chartDatum = 0;
 let teamName = '';
+let shoreType = 'semi-exposed';
 
 const DEFAULT_COLOURS = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C'];
 
@@ -505,7 +516,8 @@ function saveToStorage() {
         dataCols,
         dataRows,
         chartDatum,
-        teamName
+        teamName,
+        shoreType
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
@@ -519,6 +531,7 @@ function loadFromStorage() {
         dataRows = parsed.dataRows;
         chartDatum = parsed.chartDatum || 0;
         teamName = parsed.teamName || '';
+        shoreType = parsed.shoreType || 'semi-exposed';
         // Ensure colors exist (for backwards compatibility)
         dataCols.forEach((col, i) => {
             if (!col.color) {
@@ -533,6 +546,7 @@ function loadFromStorage() {
         });
         document.getElementById('chartDatum').value = chartDatum;
         document.getElementById('teamName').value = teamName;
+        document.getElementById('shoreType').value = shoreType;
         return true;
     } catch {
         return false;
@@ -574,7 +588,9 @@ function exportToCSV() {
         .replace(/\s+/g, '_')            // whitespace → underscore
         .replace(/^[.\-]+|[.\-]+$/g, '') // strip leading/trailing dots and dashes
         || 'transects';
-    a.download = safeName + '_transects.csv';
+    const shorePrefixMap = { 'sheltered': 'SH_', 'semi-exposed': 'SE_', 'exposed': 'Ex_' };
+    const shorePrefix = shorePrefixMap[document.getElementById('shoreType').value] || 'SE_';
+    a.download = shorePrefix + safeName + '_transects.csv';
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -1146,6 +1162,11 @@ document.getElementById('teamName').addEventListener('input', function() {
     saveToStorage();
 });
 
+document.getElementById('shoreType').addEventListener('change', function() {
+    shoreType = this.value;
+    saveToStorage();
+});
+
 document.getElementById('teamName').addEventListener('blur', function() {
     if (!this.value.trim()) {
         teamName = randomTeamName();
@@ -1311,13 +1332,15 @@ const TEAM_ADJECTIVES = [
     'Deep', 'Eager', 'Fleet', 'Gallant', 'Hardy', 'Keen', 'Mighty', 'Noble',
     'Quick', 'Rocky', 'Salty', 'Sandy', 'Savvy', 'Sharp', 'Sleek', 'Speedy',
     'Spiny', 'Splendid', 'Sprightly', 'Stalwart', 'Stout', 'Swift', 'Tidal',
-    'Tiny', 'Valiant', 'Vibrant', 'Wandering', 'Wild', 'Wise', 'Zesty'
+    'Tiny', 'Valiant', 'Vibrant', 'Wandering', 'Wild', 'Wise', 'Zesty',
+    'Based', 'Bussin', 'Cheugy', 'Extra', 'Fire', 'Goated', 'Highkey',
+    'Iconic', 'Lit', 'Lowkey', 'Snatched', 'Sus'
 ];
 const TEAM_NOUNS = [
     'Anemones', 'Barnacles', 'Blennies', 'Chitons', 'Crabs', 'Cushionstars', 'Cuttlefish',
-    'Dogwhelks', 'Gobies', 'Hermits', 'Isopods', 'Jellyfish', 'Kelps', 'Limpets',
+    'Dogwhelks', 'Gobies', 'Hermits', 'Isopods', 'Jellyfish', 'Limpets',
     'Lobsters', 'Mussels', 'Nudibranchs', 'Otters', 'Periwinkles', 'Prawns', 'Puffins',
-    'Razorshells', 'Rockpools', 'Sandhoppers', 'Scallops', 'Seals', 'Shrimps', 'Snails',
+    'Razorshells', 'Sandhoppers', 'Scallops', 'Seals', 'Shrimps', 'Snails',
     'Starfish', 'Topshells', 'Urchins', 'Whelks', 'Winkles', 'Worms', 'Wrasse'
 ];
 function randomTeamName() {
