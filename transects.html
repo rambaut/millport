@@ -397,7 +397,7 @@
             <button id="importBtn" class="btn btn-outline-primary me-2">Import Data</button>
             <button id="combineBtn" class="btn btn-outline-success me-2">Combine CSVs</button>
             <button id="clearBtn" class="btn btn-outline-danger me-2">Clear</button>
-            <button id="testDataBtn" class="btn btn-outline-secondary">Test Data</button>
+            <button id="testDataBtn" class="btn btn-outline-secondary" style="display:none;">Test Data</button>
         </div>
     </div>
     <input type="file" id="fileInput" accept=".csv" style="display: none;">
@@ -460,6 +460,11 @@
             </div>
             <div class="modal-body">
                 <p class="text-muted">Enter the starting height and increment to automatically fill all height values in the table.</p>
+                <div class="mb-3">
+                    <label for="stationCount" class="form-label">Number of stations</label>
+                    <input type="number" class="form-control" id="stationCount" min="1" step="1" placeholder="e.g., 20">
+                    <div class="form-text">If this exceeds the current number of rows, new rows will be added.</div>
+                </div>
                 <div class="mb-3">
                     <label for="startHeight" class="form-label">Start Height</label>
                     <input type="number" class="form-control" id="startHeight" step="0.01" placeholder="e.g., 0">
@@ -1159,8 +1164,15 @@ window.fillHeights = function() {
 
 // Handle fill heights apply button
 document.getElementById('applyFillHeights').addEventListener('click', function() {
+    const stationCountRaw = document.getElementById('stationCount').value;
+    const stationCount = stationCountRaw !== '' ? parseInt(stationCountRaw, 10) : null;
     const startHeight = parseFloat(document.getElementById('startHeight').value);
     const increment = parseFloat(document.getElementById('heightIncrement').value);
+    
+    if (stationCount !== null && (isNaN(stationCount) || stationCount < 1)) {
+        alert('Please enter a valid number of stations (at least 1)');
+        return;
+    }
     
     if (isNaN(startHeight)) {
         alert('Please enter a valid number for start height');
@@ -1172,8 +1184,16 @@ document.getElementById('applyFillHeights').addEventListener('click', function()
         return;
     }
     
+    // Extend rows if station count exceeds current row count
+    if (stationCount !== null && stationCount > dataRows.length) {
+        while (dataRows.length < stationCount) {
+            dataRows.push(createEmptyRow());
+        }
+    }
+    
     // Fill heights
-    for (let i = 0; i < dataRows.length; i++) {
+    const rowsToFill = stationCount !== null ? Math.min(stationCount, dataRows.length) : dataRows.length;
+    for (let i = 0; i < rowsToFill; i++) {
         dataRows[i].height = +(startHeight + i * increment).toFixed(2);
     }
     
@@ -1191,6 +1211,7 @@ document.getElementById('applyFillHeights').addEventListener('click', function()
     modal.hide();
     
     // Clear inputs for next time
+    document.getElementById('stationCount').value = '';
     document.getElementById('startHeight').value = '';
     document.getElementById('heightIncrement').value = '';
 });
@@ -1430,6 +1451,9 @@ if (!loadFromStorage()) {
 } else {
     // Auto-plot the loaded data
     setTimeout(() => document.getElementById('plotDataBtn').click(), 100);
+}
+if (new URLSearchParams(window.location.search).get('test') === 'true') {
+    document.getElementById('testDataBtn').style.display = '';
 }
 renderTable();
 </script>
