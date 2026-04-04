@@ -480,22 +480,53 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 <script>
+// --- Configuration constants ---
+const TAXON_NAMES = [
+    'Semibalanus balanoides',
+    'Chthamalus stellatus',
+    'Chthamalus montagui',
+    'Fucus spiralis',
+    'Fucus vesiculosus',
+    'Fucus serratus',
+    'Ascophyllum nodosum',
+    'Pelvetia canaliculata',
+    'Littorina littorea',
+    'Littorina saxatilis',
+    'Patella vulgata',
+    'Mytilus edulis',
+    'Nucella lapillus',
+    'Elminius modestus',
+    'Mastocarpus stellatus',
+    'Corallina officinalis',
+    'Ulva lactuca',
+    'Porphyra umbilicalis'
+];
+
+const COLUMN_DEFS = [
+    { inputType: 'dropdown', color: '#F1BB7B' },
+    { inputType: 'dropdown', color: '#FD6467' },
+    { inputType: 'dropdown', color: '#5B1A18' },
+    { inputType: 'dropdown', color: '#D67236' },
+    { inputType: 'dropdown', color: '#85D4E3' },
+    { inputType: 'dropdown', color: '#F4B5BD' },
+    { inputType: 'text',     color: '#9C964A' },
+    { inputType: 'text',     color: '#CDC08C' }
+];
+
 // --- Variables ---
-const NUM_DATA_COLS = 8;
+const NUM_DATA_COLS = COLUMN_DEFS.length;
 let dataCols, dataRows;
 let chartDatum = 0;
 let teamName = '';
 let shoreType = 'semi-exposed';
 
-const DEFAULT_COLOURS = ['#F1BB7B', '#FD6467', '#5B1A18', '#D67236', '#85D4E3', '#F4B5BD', '#9C964A', '#CDC08C'];
-
 // --- Helper functions ---
 function getInitialCols() {
-    // Wes Anderson themed color palette
-    return Array.from({length: NUM_DATA_COLS}, (_, i) => ({
+    return COLUMN_DEFS.map((def) => ({
         label: '',
         type: 'count',
-        color: DEFAULT_COLOURS[i]
+        color: def.color,
+        inputType: def.inputType
     }));
 }
 function getInitialRows() {
@@ -532,10 +563,13 @@ function loadFromStorage() {
         chartDatum = parsed.chartDatum || 0;
         teamName = parsed.teamName || '';
         shoreType = parsed.shoreType || 'semi-exposed';
-        // Ensure colors exist (for backwards compatibility)
+        // Ensure colors and inputType exist (for backwards compatibility)
         dataCols.forEach((col, i) => {
             if (!col.color) {
-                col.color = DEFAULT_COLOURS[i];
+                col.color = COLUMN_DEFS[i] ? COLUMN_DEFS[i].color : '#888888';
+            }
+            if (!col.inputType) {
+                col.inputType = COLUMN_DEFS[i] ? COLUMN_DEFS[i].inputType : 'text';
             }
         });
         // Ensure length field exists (for backwards compatibility)
@@ -980,7 +1014,9 @@ function renderTable() {
             ${dataCols.map((col, i) => `
                 <th class="sticky-header table-header-cell" style="width: var(--col-width-data);">
                     <div class="header-row-1">
-                        <input type="text" class="form-control form-control-sm table-cell-input" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">
+                        ${col.inputType === 'dropdown'
+                            ? `<select class="form-select form-select-sm table-cell-input" data-col-idx="${i}" onchange="onColLabelChange(event)"><option value="">-- select --</option>${TAXON_NAMES.map(name => `<option value="${name}"${col.label === name ? ' selected' : ''}>${name}</option>`).join('')}</select>`
+                            : `<input type="text" class="form-control form-control-sm table-cell-input" value="${col.label}" data-col-idx="${i}" onchange="onColLabelChange(event)">`}
                     </div>
                     <div class="header-row-2">
                         <input type="color" class="form-control form-control-sm form-control-color" value="${col.color}" data-col-idx="${i}" onchange="onColColorChange(event)" style="height: 26px;">
@@ -1256,7 +1292,9 @@ document.getElementById('testDataBtn').addEventListener('click', function() {
     if (!confirm('This will clear the table and insert test data. Continue?')) return;
     dataCols = getInitialCols();
     // Set up columns 1-6
-    const labels = ["Semibalanus", "Chthamalus", "Greenish algae", "Brownish algae", "Winkles", "Dogwelks"];
+    const labels = ["Semibalanus balanoides", 
+    "Chthamalus montagui", 
+    "Ulva lactuca", "Fucus spiralis", "Littorina littorea", "Nucella lapillus"];
     const types = ["% cover", "% cover", "% cover", "% cover", "count", "count"];
     for (let i = 0; i < 6; ++i) {
         dataCols[i].label = labels[i];
