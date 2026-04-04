@@ -482,24 +482,27 @@
 <script>
 // --- Configuration constants ---
 const TAXON_NAMES = [
-    'Semibalanus balanoides',
-    'Chthamalus stellatus',
-    'Chthamalus montagui',
-    'Fucus spiralis',
-    'Fucus vesiculosus',
-    'Fucus serratus',
-    'Ascophyllum nodosum',
-    'Pelvetia canaliculata',
-    'Littorina littorea',
-    'Littorina saxatilis',
-    'Patella vulgata',
-    'Mytilus edulis',
-    'Nucella lapillus',
-    'Elminius modestus',
-    'Mastocarpus stellatus',
-    'Corallina officinalis',
-    'Ulva lactuca',
-    'Porphyra umbilicalis'
+    'Verrucaria (black coating on rocks)',
+    'Lichens (other than Verrucaria)',
+    'Green seaweeds (Enteromorpha and Ulva combined)',
+    'Red seaweeds (all species combined)',
+    'Kelps (Laminaria and Saccharina species combined)',
+    'Pelvetia canaliculata (brown seaweed)',
+    'Fucus spiralis (brown seaweed)',
+    'Fucus vesiculosus (brown seaweed)',
+    'Fucus serratus (brown seaweed)',
+    'Ascophyllum nodosum (brown seaweed)',
+    'Himanthalia (brown seaweed)',
+    'Chthamalus barnacles',
+    'Semibalanus barnacles',
+    'Tiny periwinkle (Melaraphe neritoides)',
+    'Periwinkles (Littorina saxatilis and L. littorea)',
+    'Flat periwinkles (Littorina mariae/obtusata)',
+    'Limpets (Patella)',
+    'Dog whelks (Nucella)',
+    'Mussels (Mytilus)',
+    'Beadlet anemone (Actinia equina)',
+    'Tube worms (Spirorbis etc.)'
 ];
 
 const COLUMN_DEFS = [
@@ -1287,14 +1290,39 @@ document.getElementById('clearBtn').addEventListener('click', function() {
     }
 });
 
+    'Verrucaria (black coating on rocks)',
+    'Lichens (other than Verrucaria)',
+    'Green seaweeds (Enteromorpha and Ulva combined)',
+    'Red seaweeds (all species combined)',
+    'Kelps (Laminaria and Saccharina species combined)',
+    'Pelvetia canaliculata (brown seaweed)',
+    'Fucus spiralis (brown seaweed)',
+    'Fucus vesiculosus (brown seaweed)',
+    'Fucus serratus (brown seaweed)',
+    'Ascophyllum nodosum (brown seaweed)',
+    'Himanthalia (brown seaweed)',
+    'Chthamalus barnacles',
+    'Semibalanus barnacles',
+    'Tiny periwinkle (Melaraphe neritoides)',
+    'Periwinkles (Littorina saxatilis and L. littorea)',
+    'Flat periwinkles (Littorina mariae/obtusata)',
+    'Limpets (Patella)',
+    'Dog whelks (Nucella)',
+    'Mussels (Mytilus)',
+    'Beadlet anemone (Actinia equina)',
+    'Tube worms (Spirorbis etc.)'
+
 // Test Data button logic
 document.getElementById('testDataBtn').addEventListener('click', function() {
     if (!confirm('This will clear the table and insert test data. Continue?')) return;
     dataCols = getInitialCols();
     // Set up columns 1-6
-    const labels = ["Semibalanus balanoides", 
-    "Chthamalus montagui", 
-    "Ulva lactuca", "Fucus spiralis", "Littorina littorea", "Nucella lapillus"];
+    const labels = ["Semibalanus barnacles", 
+        "Chthamalus barnacles", 
+        "Green seaweeds (Enteromorpha and Ulva combined)", 
+        "Fucus spiralis (brown seaweed)", 
+        "Periwinkles (Littorina saxatilis and L. littorea)", 
+        "Dog whelks (Nucella)"];
     const types = ["% cover", "% cover", "% cover", "% cover", "count", "count"];
     for (let i = 0; i < 6; ++i) {
         dataCols[i].label = labels[i];
