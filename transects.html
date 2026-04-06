@@ -444,7 +444,10 @@
         <div id="plotPane" class="border bg-white w-100" style="height: var(--plot-pane-height); color: #aaa;">
             <span>Plot will appear here.</span>
         </div>
-        <div id="profilePlotPane" class="border bg-white w-100 mt-2" style="height: var(--profile-plot-height); color: #aaa;">
+        <div id="plotResizer" style="height:6px;cursor:row-resize;background:#dee2e6;display:flex;align-items:center;justify-content:center;user-select:none;">
+            <div style="width:40px;height:2px;background:#adb5bd;border-radius:2px;"></div>
+        </div>
+        <div id="profilePlotPane" class="border bg-white w-100" style="height: var(--profile-plot-height); color: #aaa;">
             <span>Shore profile will appear here.</span>
         </div>
     </div>
@@ -865,18 +868,26 @@ function importFromCSV(file) {
 // --- Plot Data button logic ---
 document.getElementById('plotDataBtn').addEventListener('click', function() {
     const traces = [];
-    let colIdx = 0;
-    const colLabels = [];
     const datumOffset = parseFloat(document.getElementById('chartDatum').value) || 0;
     const plotTitle = document.getElementById('teamName').value.trim() || 'Kite Diagrams by Column';
-    
-    // Find all columns with labels
+
+    // Build an explicit map: column index → x-centre, and the ordered tick labels/vals
+    const colLabels = [];
+    const tickVals = [];
+    const colXCenter = {};
+    let posCount = 0;
     for (let i = 0; i < dataCols.length; ++i) {
         const label = dataCols[i].label.trim();
-        if (label) colLabels.push(label);
+        if (label) {
+            colXCenter[i] = posCount + 0.4;
+            tickVals.push(posCount + 0.4);
+            colLabels.push(label.replace(/\s*\(.*?\)/g, '').trim());
+            posCount++;
+        }
     }
-    // Assign each column a unique x-position
-    for (let i = 0, plotIdx = 0; i < dataCols.length; ++i) {
+
+    // Draw each labeled column
+    for (let i = 0; i < dataCols.length; ++i) {
         const label = dataCols[i].label.trim();
         if (!label) continue;
         const colType = dataCols[i].type;
@@ -897,7 +908,7 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
             const zipped = heights.map((h, idx) => [h, values[idx]]).sort((a, b) => a[0] - b[0]);
             const sortedHeights = zipped.map(z => z[0]);
             const sortedValues = zipped.map(z => z[1]);
-            const xCenter = plotIdx + 0.4;
+            const xCenter = colXCenter[i];
             const maxVal = Math.max(...sortedValues);
             const scale = maxVal > 0 ? 0.4 / maxVal : 0.4;
             if (colType === 'count') {
@@ -962,7 +973,6 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
                     customdata: sortedValues
                 });
             }
-            plotIdx++;
         }
     }
     if (traces.length === 0) {
@@ -981,14 +991,16 @@ document.getElementById('plotDataBtn').addEventListener('click', function() {
         title: plotTitle,
         yaxis: { title: 'Absolute Height (m)' },
         xaxis: {
-            tickvals: colLabels.map((_, i) => i + 0.4),
+            tickvals: tickVals,
             ticktext: colLabels,
-            tickangle: -45,
+            tickangle: -90,
+            tickmode: 'array',
+            automargin: true,
             zeroline: false,
             showline: false,
-            range: n > 0 ? [-0.1, n + 0.3] : [-0.1, 0.7]
+            range: n > 0 ? [-0.5, n + 0.3] : [-0.5, 0.7]
         },
-        margin: { t: 40, b: 100, l: 60, r: 10 },
+        margin: { t: 40, b: 200, l: 70, r: 20 },
         height: 440,
         plot_bgcolor: '#fff',
         paper_bgcolor: '#fff',
@@ -1509,6 +1521,48 @@ if (new URLSearchParams(window.location.search).get('test') === 'true') {
     document.getElementById('testDataBtn').style.display = '';
 }
 renderTable();
+
+// --- Resizable plot divider ---
+(function() {
+    const resizer = document.getElementById('plotResizer');
+    const plotPane = document.getElementById('plotPane');
+    const profilePane = document.getElementById('profilePlotPane');
+    const MIN_PLOT = 100;
+    const MIN_PROFILE = 60;
+    let dragging = false;
+    let startY, startPlotH, startProfileH;
+
+    resizer.addEventListener('mousedown', function(e) {
+        dragging = true;
+        startY = e.clientY;
+        startPlotH = plotPane.getBoundingClientRect().height;
+        startProfileH = profilePane.getBoundingClientRect().height;
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        const newPlotH = Math.max(MIN_PLOT, startPlotH + dy);
+        const newProfileH = Math.max(MIN_PROFILE, startProfileH - dy);
+        plotPane.style.height = newPlotH + 'px';
+        profilePane.style.height = newProfileH + 'px';
+    });
+
+    document.addEventListener('mouseup', function() {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        // Notify Plotly to refit both plots
+        if (window.Plotly) {
+            Plotly.Plots.resize('plotPane');
+            Plotly.Plots.resize('profilePlotPane');
+        }
+    });
+})();
 </script>
 </body>
 </html>
