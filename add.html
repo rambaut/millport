@@ -1,0 +1,548 @@
+<?php
+	include("../millport.inc");
+	 
+	connectToDatabase("millport");
+
+
+	$mobile = true;
+
+	$lab = GetInt('lab');
+
+	$phylum_id = GetStr('pid');
+	$species_id = GetStr('sid');
+	$binomial = trim(GetStr('binomial'));
+	$create = GetStr('create');
+	$mode = GetStr('mode');
+
+	$year = GetInt('year');
+	if (!$year) {
+		$year = $current_year;
+	}
+
+	//if (!$title) {
+		$title = "Field Zoology ".$year;
+	//}
+	startPage();
+	writeHeader($title, null, null,  null, 
+		"<meta name=\"viewport\" content=\"width=640, initial-scale=1.0, user-scalable=yes\" />".
+		"<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\" />".
+		"<meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />"
+		);
+	startBody(($mobile?"id=\"mobile\"":null));
+
+
+    echo('<h1>'.$title.'</h1>');
+    echo('<h2>New identification...</h2>');
+
+	echo('	
+	<div id="contentContainer">
+	  <!-- Start main content wrapper -->
+
+	  <div id="content">
+		<!-- Start content -->
+		');
+
+	if ($lab == null) {
+		echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+		echo('<div class="subtitle">
+			<label for="lab">Select laboratory:</label>
+			<select name="lab" id="lab">
+				<option value="1">Lab 1 - Clyde</option>
+				<option value="2">Lab 2 - Farland</option>
+				<option value="3">Lab 3 - Jura</option>
+			</select></div>');
+		echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+		if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+		echo('<div  class="subtitle">
+			<input type="submit" class="add-submit" value="Next" />
+			</div>');
+		echo('</form>');
+	} else { // $lab != NULL
+		if ($phylum_id) {
+	
+			//$result = mysqli_query("SELECT * FROM phyla WHERE id=$phylum_id",$dbconn);
+			//$phylum = mysqli_fetch_array($result);
+			$query = $dbconn->prepare("SELECT * FROM phyla WHERE id=:id");
+			$query->bindParam(':id', $phylum_id, PDO::PARAM_INT);
+			$query->execute();
+			$phylum = $query->fetch(PDO::FETCH_ASSOC);
+
+			if ($species_id || ($binomial && $create)) {
+				echo('<form action="add_species.php" method="POST">');
+				if ($binomial && $create) {
+					// The create flag is set so go ahead and create a new species record...
+	
+					echo('<div class="subtitle">Provide additional information about this species:</div>');
+	
+					echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+					echo('<input type="hidden" name="pid" id="pid" value="'.$phylum_id.'" />');
+					echo('<input type="hidden" name="binomial" id="binomial" value="'.$binomial.'" />');
+					echo('<table id="record">');
+					echo('<tr><th style="text-align:right; width:33%">Species:</th><th><i>'.$binomial.'</i></th></tr>');
+					if ($mode) {
+						echo('<div class="subtitle">
+							<label for="phylum">Phylum:</label>
+							<select name="pid" id="phylum">
+								<option disabled>Animals:</option>
+						');
+						//$result = mysqli_query("SELECT * FROM phyla WHERE is_plant=0 ORDER BY name",$dbconn);
+						//if ($phylum = mysqli_fetch_array($result)) {
+						$query = $dbconn->prepare("SELECT * FROM phyla WHERE is_plant=0 ORDER BY name");
+						$query->execute();
+						if ($phylum = $query->fetch(PDO::FETCH_ASSOC)) {
+							do {
+								echo('<option value="'.$phylum["id"].'"'.($phylum["id"]==$phylum_id ? ' selected' : '').'>'.$phylum["name"].'</option>');		
+//							} while ($phylum = mysqli_fetch_array($result)) ;
+							} while ($phylum = $query->fetch(PDO::FETCH_ASSOC)) ;
+						}
+						echo('<option disabled></option>');
+						echo('<option disabled>Plant like things:</option>');
+						//$result = mysqli_query("SELECT * FROM phyla WHERE is_plant=1 ORDER BY name",$dbconn);
+						//if ($phylum = mysqli_fetch_array($result)) {
+						$query = $dbconn->prepare("SELECT * FROM phyla WHERE is_plant=1 ORDER BY name");
+						$query->execute();
+						if ($phylum = $query->fetch(PDO::FETCH_ASSOC)) {
+							do {
+								echo('<option value="'.$phylum["id"].'"'.($phylum["id"]==$phylum_id ? ' selected':'').'>'.$phylum["name"].'</option>');		
+//							} while ($phylum = mysqli_fetch_array($result)) ;
+							} while ($phylum = $query->fetch(PDO::FETCH_ASSOC)) ;
+						}
+						echo('</select></div>');
+					} else {
+						echo('<tr><td style="text-align:right">Phylum:</th><td>'.$phylum['name'].' ('.$phylum['description'].')</td></tr>');
+					}
+					echo('<tr><td style="text-align:right"><label for="class">Class:</label></td><td><input type="text" name="class" id="class" size="50" value="" /></td></tr>');
+					echo('<tr><td style="text-align:right"><label for="name">Common name:</label></td><td><input type="text" name="name" id="name" size="50" value="" /></td></tr>');
+					echo('<tr><td style="text-align:right"><label for="notes">Notes:</label></td><td><input type="text" name="notes" id="notes" size="50" value="" /></td></tr>');
+					if ($mode) {
+						echo('<tr><td style="text-align:right"><label for="synonyms">Synonyms:</label></td><td><input type="text" name="synonyms" id="synonyms" size="50" value="" /></td></tr>');
+						echo('<tr><td style="text-align:right"><label for="synonym_notes">Synonym Notes:</label></td><td><input type="text" name="synonym_notes" id="synonym_notes" size="50" value="" /></td></tr>');
+					}
+					echo('</table>');
+					
+					$message = "Selecting 'Add new species' will add this new species and identification to the database. This cannot be easily undone so check the details, above.";
+					$button = "Add new species";
+				} else {
+					// A species id has been specified so show details...
+		
+					//$result = mysqli_query("SELECT * FROM species WHERE id=$species_id",$dbconn);
+					//$species = mysqli_fetch_array($result);
+					$query = $dbconn->prepare("SELECT * FROM species WHERE id=:id");
+					$query->bindParam(':id', $species_id, PDO::PARAM_INT);
+					$query->execute();
+					$species = $query->fetch(PDO::FETCH_ASSOC);
+
+					echo('<table id="record">');
+					echo('<tr><th style="text-align:right; width:33%">Species:</th><th><i>'.getBinomial($species).'</i>'.($species['name']?' ('.$species['name'].')' : '').'</th></tr>');
+					echo('<tr><td style="text-align:right">Class:</th><td>'.$species['class'].'</td></tr>');
+					echo('<tr><td style="text-align:right">Phylum:</th><td>'.$phylum['name'].' ('.$phylum['description'].')</td></tr>');
+					echo('</table>');
+
+					$message = "Selecting 'Add new identification' will add this to the database. This cannot be easily undone so check the details, above.";
+					$button = "Add new identification";
+				}
+	
+				
+				echo('<div class="subtitle">Provide information about this sample:</div>');
+	
+				echo('<table id="record">');			
+				echo('<input type="hidden" name="sid" id="sid" value="'.$species_id.'" />');
+				echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+				echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+				if ($mode) {
+					echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+					echo('<tr><td style="text-align:right; width:33%"><label for="site">Sampling site:</label></td><td>');
+					//$result = mysqli_query("SELECT * FROM Sites ORDER BY id",$dbconn);
+					//if ($site = mysqli_fetch_array($result)) {
+					$query = $dbconn->prepare("SELECT * FROM sites ORDER BY id");
+					$query->execute();
+					if ($site = $query->fetch(PDO::FETCH_ASSOC)) {
+						do {
+							if ($site["id"] >= 1 && $site["id"] <= 3) {
+								// limit to Millport sites...
+								echo('
+								<input type=checkbox name="site'.$site["id"].'" value="true">'.$site["name"].'</input><br>
+								');		
+							}
+//						} while ($site = mysqli_fetch_array($result));
+						} while ($site = $query->fetch(PDO::FETCH_ASSOC));
+					}
+					echo('</td></tr>');
+				} else {
+					echo('<tr><td style="text-align:right; width:33%"><label for="site">Sampling site:</label></td><td><select name="site" id="site">');
+					//$result = mysqli_query("SELECT * FROM Sites ORDER BY id",$dbconn);
+					//if ($site = mysqli_fetch_array($result)) {
+					$query = $dbconn->prepare("SELECT * FROM sites ORDER BY id");
+					$query->execute();
+					if ($site = $query->fetch(PDO::FETCH_ASSOC)) {
+						do {
+							if ($site["id"] >= 1 && $site["id"] <= 3) {
+								// limit to Millport sites...
+								echo('
+								<option value="'.$site["id"].'">'.$site["name"].'</option>
+								');		
+							}	
+//						} while ($site = mysqli_fetch_array($result));
+						} while ($site = $query->fetch(PDO::FETCH_ASSOC));
+					}
+					echo('</select></td></tr>');
+				}
+				echo('<tr><td style="text-align:right"><label for="location">Identification Notes:</label></td><td><input type="text" name="id_notes" id="id_notes" size="50" value="" /></td></tr>');
+				echo('<tr><td style="text-align:right"><label for="location">Location Notes:</label></td><td><input type="text" name="location" id="location" size="50" value="" /></td></tr>');
+				echo('<tr><td style="text-align:right"><label for="identified_by">Identified by (initials):</label></td><td><input type="text" name="identified_by" id="identified_by" size="10" value="" /></td></tr>');
+				echo('<tr><td style="text-align:right"><label for="corroborated_by">Corroborated by (initials):</label></td><td><input type="text" name="corroborated_by" id="corroborated_by" size="10" value="" /></td></tr>');
+				echo('</table>');
+
+				echo('<div class="subtitle">'.$message.'</div>');
+
+				echo('<table id="record">');
+				echo('<tr><td style="text-align:right" colspan="2"><div class="subtitle">
+					<input type="button" value="Back" onClick="history.go(-1);return true;" />
+					<input type="submit" value="'.$button.'" />
+					</div></td></tr>');
+				echo('</table>');
+				echo('</form>');
+			} else if ($binomial && !$create) { // $binomial is set but not $create
+				// No create flag so see if this species already exists...
+				
+				$split = preg_split("/\s+/", trim($binomial));
+				$genus = preg_replace('/[^a-z]/i', '', $split[0]); // only allow letters
+				if (count($split) > 1) {
+					$speciesName = $split[1];
+					$speciesName = preg_replace('/[^a-z\.]/i', '', $split[1]); // only allow letters and .
+				}
+	
+				// First lets check if they are being funny...
+				//$result = mysqli_query("SELECT * FROM comedy WHERE species=\"$genus\"",$dbconn);
+				//if ($comedy = mysqli_fetch_array($result)) {
+				$query = $dbconn->prepare("SELECT * FROM comedy WHERE species=:g");
+				$query->bindParam(':g', $genus, PDO::PARAM_STR);
+				$query->execute();
+				if ($comedy = $query->fetch(PDO::FETCH_ASSOC)) {
+					echo('<div class="title">Funny.</div>');
+					if ($comedy['image']) {
+						echo('<div class="subtitle"><img src="images/'.$comedy['image'].'" width=512 /></div>');
+					}
+					echo('<div class="subtitle"><i>'.$comedy['name'].'</i></div>');
+					echo('<div class="subtitle"><input type="button" value="Back" onClick="history.go(-1);return true;"/></div>');
+					
+				} else {
+	
+					//$result = mysqli_query("SELECT * FROM species WHERE genus=\"$genus\" AND species=\"$speciesName\"",$dbconn);
+					//if ($species = mysqli_fetch_array($result)) {
+					$query = $dbconn->prepare("SELECT * FROM species WHERE genus=:g AND species=:s");
+					$query->bindParam(':g', $genus, PDO::PARAM_STR);
+					$query->bindParam(':s', $speciesName, PDO::PARAM_STR);
+					$query->execute();
+					if ($species = $query->fetch(PDO::FETCH_ASSOC)) {
+						// An exact match to the species has been found
+						$pid_db = $species['phylum_id'];
+						//$result = mysqli_query("SELECT * FROM phyla WHERE id=$pid_db",$dbconn);
+						//$phylum_db = mysqli_fetch_array($result);
+						$query = $dbconn->prepare("SELECT * FROM phyla WHERE id=:p");
+						$query->bindParam(':p', $pid_db, PDO::PARAM_STR);
+						$query->execute();
+						$phylum_db = $query->fetch(PDO::FETCH_ASSOC);
+						
+						if ($speciesName) {
+							echo(' <div class="subtitle">Species <i>'.getBinomial($species).'</i> found in database</div>');
+							
+							if ($species['phylum_id'] != $phylum_id) {
+								echo('
+									<div class="subtitle">WARNING: the phylum you assigned ('.$phylum['name'].') does not match the one in database for this species ('.$phylum_db['name'].').<br>
+									Check that this is the species you intended to identify before continuing. </div>
+								');
+							}
+			
+							echo('<form action="add.html" method="get" enctype="multipart/form-data">');
+							echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+							echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+							if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+							echo('<input type="hidden" name="pid" value="'.$species['phylum_id'].'">');
+							echo('<input type="hidden" name="sid" value="'.$species['id'].'">');
+							echo('<div class="subtitle">
+							<input type="button" value="Back" onClick="history.go(-1);return true;"/>
+							<input type="submit" class="add-submit" value="Continue" />
+							</div>');
+							echo('</form>');
+						} else {
+							echo(' <div class="subtitle">Genus <i>'.getBinomial($species).'</i> (Phylum: '.$phylum_db['name'].($species['class'] ? ', Class: '.$species['class']:'').') found in database</div>');
+													
+							if ($pid_db != $phylum_id) {
+								echo('
+									<div class="subtitle">WARNING: the phylum you assigned ('.$phylum['name'].') does not match the one in database for this species ('.$phylum_db['name'].').<br>
+									Check that this is the species you intended to identify before continuing. </div>
+								');
+							}
+							
+							echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+							echo('
+								<div class="subtitle">
+								<input type="radio" id="species" name="sid" value='.$species['id'].' checked><i>'.getBinomial($species).'</i>'.($species['name']?' ('.$species['name'].')' : '').'</input>
+								</div>							
+								<div class="info">(please only select this if indentifying to species level is difficult given the resources available)</div>									
+								<div class="info">'.$species['notes'].'</div>									
+							');
+							//$result = mysqli_query("SELECT * FROM species WHERE genus=\"$genus\"",$dbconn);
+							//if ($species = mysqli_fetch_array($result)) {
+							$query = $dbconn->prepare("SELECT * FROM species WHERE genus=:g");
+							$query->bindParam(':g', $genus, PDO::PARAM_STR);
+							$query->execute();
+							if ($species = $query->fetch(PDO::FETCH_ASSOC)) {
+								echo(' <div class="subtitle"><br>Species in this genus include:</div>');
+							
+								do {
+									if ($species['species'] != null) {
+										echo('
+											<div class="subtitle">
+											<input type="radio" id="species" name="sid" value='.$species['id'].'><i>'.getBinomial($species).'</i>'.($species['name']?' ('.$species['name'].')' : '').'</input>
+											</div>
+											<div class="info">'.$species['notes'].'</div>									
+										');
+									}
+								} while ($species = $query->fetch(PDO::FETCH_ASSOC));
+							}
+							echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+							echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+							if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+							echo('<input type="hidden" name="pid" value="'.$pid_db.'">');
+							echo('<div class="subtitle">
+							<input type="submit" class="add-submit" value="Continue using species selected" />
+							</div>');
+							echo('</form>');
+							echo('<div class="subtitle">Or add the new species:</div>');
+
+							echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+							echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+							echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+							if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+							echo('<input type="hidden" name="pid" value="'.$phylum_id.'">');
+							echo('<input type="hidden" name="binomial" value="'.$binomial.'">');
+							echo('<input type="hidden" name="create" value="true">');
+							echo('<div class="subtitle">
+							<input type="button" value="Back" onClick="history.go(-1);return true;"/>
+							<input type="submit" class="add-submit" value="Add new species" />
+							</div>');
+							echo('</form>');
+						} 
+						
+					} else { 
+						// no exact match
+						//$result = mysqli_query("SELECT * FROM synonyms WHERE synonym='$binomial'",$dbconn);
+						//if ($synonym = mysqli_fetch_array($result)) {
+						$query = $dbconn->prepare("SELECT * FROM synonyms WHERE synonym=:b");
+						$query->bindParam(':b', $binomial, PDO::PARAM_STR);
+						$query->execute();
+						if ($synonym = $query->fetch(PDO::FETCH_ASSOC)) {
+							// a synonym has been matched
+							//$result2 = mysqli_query("SELECT * FROM species WHERE id=".$synonym['species_id'],$dbconn);
+							//if ($species = mysqli_fetch_array($result2)) {
+							$query2 = $dbconn->prepare("SELECT * FROM species WHERE id=:s");
+							$query2->bindParam(':s', $synonym['species_id'], PDO::PARAM_INT);
+							$query2->execute();
+							if ($species = $query2->fetch(PDO::FETCH_ASSOC)) {
+								$pid_db = $species['phylum_id'];
+								echo('<div class="subtitle">The species name <i>'.$binomial.'</i> has been superseded by <i>'.getBinomial($species).'</i>.</div>');
+								echo('<div class="info">'.$synonym['notes'].'</i>.</div>');
+								echo('<div class="subtitle">Either use the new name or go back and check the identification.</div>');
+								echo('<form action="add.html" method="get" enctype="multipart/form-data">');
+								echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+								echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+								if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+								echo('<input type="hidden" name="pid" value="'.$pid_db.'">');
+								echo('<input type="hidden" name="sid" value="'.$species['id'].'">');
+								echo('<div class="subtitle">
+								<input type="button" value="Back" onClick="history.go(-1);return true;"/>
+								<input type="submit" class="add-submit" value="Use new name" />
+								</div>');
+								echo('</form>');
+							} else {
+								echo('
+								<div class="subtitle">The species with id, '.$synonym['species_id'].', is missing</div>
+								');
+							}
+						} else {
+							// no synonym matched
+							//$result = mysqli_query("SELECT * FROM species WHERE genus=\"$genus\"",$dbconn);
+							//if ($species = mysqli_fetch_array($result)) {
+							$query = $dbconn->prepare("SELECT * FROM species WHERE genus=:g");
+							$query->bindParam(':g', $genus, PDO::PARAM_STR);
+							$query->execute();
+							if ($species = $query->fetch(PDO::FETCH_ASSOC)) {
+								if ($speciesName) {
+									echo('
+									<div class="subtitle">No exact match to species, <i>'.$binomial.'</i>, exists in the database but other species in the genus <i>'.$genus.'</i> were found:</div>
+									');
+								} else {
+									echo(' <div class="subtitle">Only a genus was given. Species in this genus include:</div>');
+								}
+	
+								echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+								do {
+									$pid_db = $species['phylum_id'];
+									//$result3 = mysqli_query("SELECT * FROM phyla WHERE id=$pid_db",$dbconn);
+									//$phylum_db = mysqli_fetch_array($result3);
+									$query = $dbconn->prepare("SELECT * FROM phyla WHERE id=:p");
+									$query->bindParam(':p', $pid_db, PDO::PARAM_INT);
+									$query->execute();
+									$phylum_db = $query->fetch(PDO::FETCH_ASSOC);
+									echo('
+										<div class="subtitle">
+										<input type="radio" id="species" name="sid" value='.$species['id'].'><i>'.getBinomial($species).'</i>'.($species['name']?' ('.$species['name'].')' : '').' Phylum: '.$phylum_db['name'].' Class: '.$species['class'].'</input>
+										</div>
+										<div class="info">'.$species['notes'].'</div>									
+									');
+								} while ($species = $query->fetch(PDO::FETCH_ASSOC));
+								
+								echo(' <div class="subtitle">Either select a species from the above list...</div>');
+							
+								
+								echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+								echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+								if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+								echo('<input type="hidden" name="pid" value="'.$pid_db.'">');
+								echo('<div class="subtitle">
+								<input type="submit" class="add-submit" value="Continue using species selected" />
+								</div>');
+								echo('</form>');
+								if ($speciesName) {
+									echo('<div class="subtitle">Or add the new species:</div>');
+								} else {
+									echo('<div class="subtitle">Or just add the genus without a species (please only do this if indentifying to species level is difficult given the resources available):</div>');
+								}
+							} else {
+								//$result = mysqli_query("SELECT * FROM species WHERE LEFT(SOUNDEX(genus),4)=LEFT(SOUNDEX('$genus'),4)",$dbconn);
+								//if ($species = mysqli_fetch_array($result)) {
+								$query = $dbconn->prepare("SELECT * FROM species WHERE LEFT(SOUNDEX(genus),4)=LEFT(SOUNDEX(:g),4)");
+								$query->bindParam(':g', $genus, PDO::PARAM_STR);
+								$query->execute();
+								if ($species = $query->fetch(PDO::FETCH_ASSOC)) {
+									// soundex match 
+									echo('
+									<div class="subtitle">No exactly matching species exist in the database. Here are the closest matches to the genus <i>'.$genus.'</i>:</div>
+									');
+	
+									echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+									do {
+										$pid_db = $species['phylum_id'];
+										//$result2 = mysqli_query("SELECT * FROM phyla WHERE id=$pid_db",$dbconn);
+										//$phylum_db = mysqli_fetch_array($result2);
+										$query2 = $dbconn->prepare("SELECT * FROM phyla WHERE id=:p");
+										$query2->bindParam(':p', $pid_db, PDO::PARAM_INT);
+										$query2->execute();
+										$phylum_db = $query2->fetch(PDO::FETCH_ASSOC);
+										echo('
+											<div class="info">
+											<input type="radio" id="species" name="sid" value='.$species['id'].'><i>'.getBinomial($species).'</i>'.($species['name']?' ('.$species['name'].')' : '').' Phylum: '.$phylum_db['name'].' Class: '.$species['class'].'</input>
+											</div>
+										');
+									} while ($species = $query->fetch(PDO::FETCH_ASSOC));
+									echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+									echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+									if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+									echo('<input type="hidden" name="pid" value="'.$pid_db.'">');
+									echo('<div class="subtitle">
+									<input type="submit" class="add-submit" value="Continue using species selected" />
+									</div>');
+									echo('</form>');
+									echo('<div class="subtitle">Or add the new species:</div>');
+								} else {
+									// no soundex match
+									echo('
+										<div class="subtitle">No similar sounding species found in database.</div>
+									');
+								}
+							}
+								
+							echo('
+								<div class="info">
+								Add your genus/species, <i>'.$binomial.'</i>, into the database (please check this carefully continuing)?
+								</div>
+							');
+							
+							echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+							echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+							echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+							if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+							echo('<input type="hidden" name="pid" value="'.$phylum_id.'">');
+							echo('<input type="hidden" name="binomial" value="'.$binomial.'">');
+							echo('<input type="hidden" name="create" value="true">');
+							echo('<div class="subtitle">
+							<input type="button" value="Back" onClick="history.go(-1);return true;"/>
+							<input type="submit" class="add-submit" value="Add new species" />
+							</div>');
+							echo('</form>');
+						}
+					}		
+				}
+				
+			} else { // !$binomial
+				// Just a Phylum has been specified so ask for a species name...
+				echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+				echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+				echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+				if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+				echo('<div class="subtitle">Next give your species identification. If you are unable to determine the<br>
+						exact species just give the Genus but please use this as a last resort:</div>');
+				echo('<div class="subtitle"><label for="binomial">Genus & species: </label><input type="text" name="binomial" id="binomial" size="50" value="" /></div>');
+				echo('<input type="hidden" name="pid" value="'.$phylum_id.'">');
+				echo('<div class="subtitle">
+				<input type="button" value="Back" onClick="history.go(-1);return true;"/>
+				<input type="submit" class="add-submit" value="Next" />
+				</div>');
+				echo('</form>');
+			}
+		} else { // !$phylum_id
+			echo('<form action="add.html" method="get" enctype="multipart/form-data" id="add-form">');
+			echo('<input type="hidden" name="lab" id="lab" value="'.$lab.'" />');
+			echo('<input type="hidden" name="year" id="year" value="'.$year.'" />');
+			if ($mode) echo('<input type="hidden" name="mode" id="mode" value="'.$mode.'" />');
+			echo('<div class="subtitle">First select the Phylum of your organism:</div>');
+			echo('<div class="subtitle">
+				<label for="phylum">Phylum:</label>
+				<select name="pid" id="phylum">
+					<option disabled>Animals:</option>
+			');
+			//$result = mysqli_query("SELECT * FROM phyla WHERE is_plant=0 ORDER BY name",$dbconn);
+			//if ($phylum = mysqli_fetch_array($result)) {
+			$query = $dbconn->prepare("SELECT * FROM phyla WHERE is_plant=0 ORDER BY name");
+			$query->execute();
+			if ($phylum = $query->fetch(PDO::FETCH_ASSOC)) {
+
+				echo('<option selected value="'.$phylum["id"].'">'.$phylum["name"].'</option>');		
+//				while ($phylum = mysqli_fetch_array($result)) {
+				while ($phylum = $query->fetch(PDO::FETCH_ASSOC)) {
+					echo('<option value="'.$phylum["id"].'">'.$phylum["name"].'</option>');		
+				};
+			}
+			echo('<option disabled></option>');
+			echo('<option disabled>Plant like things:</option>');
+			//$result = mysqli_query("SELECT * FROM phyla WHERE is_plant=1 ORDER BY name",$dbconn);
+			//if ($phylum = mysqli_fetch_array($result)) {
+			$query = $dbconn->prepare("SELECT * FROM phyla WHERE is_plant=1 ORDER BY name");
+			$query->execute();
+			if ($phylum = $query->fetch(PDO::FETCH_ASSOC)) {
+				do {
+					echo('<option value="'.$phylum["id"].'">'.$phylum["name"].'</option>');		
+//				} while ($phylum = mysqli_fetch_array($result));
+				} while ($phylum = $query->fetch(PDO::FETCH_ASSOC));
+			}
+			echo('</select></div>');
+			echo('<div  class="subtitle">
+				<input type="button" value="Cancel" onClick="history.go(-1);return true;"/>
+				<input type="submit" class="add-submit" value="Next" />
+				</div>');
+			echo('</form>');		
+		}
+	}
+	echo('
+	  </div><!-- End content -->
+	</div><!-- End main content wrapper -->
+		');
+
+	writeFooter(Array("new identification"));
+
+	finishPage();
+	
+?>
+

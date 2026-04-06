@@ -1,0 +1,6 @@
+Options +FollowSymlinks
+RewriteEngine on
+rewritecond %{REQUEST_FILENAME} !^(.+)\.png$
+rewritecond %{REQUEST_FILENAME} !^(.+)\.gif$
+rewritecond %{REQUEST_FILENAME} !^(.+)\.jpg$
+RewriteRule ^.* http://tree.bio.ed.ac.uk/ [r,nc]
