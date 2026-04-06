@@ -485,55 +485,56 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 <script>
+
 // --- Configuration constants ---
 const TAXON_NAMES = [
-    'Verrucaria (black coating on rocks)',
     'Lichens (other than Verrucaria)',
+    'Verrucaria (black coating on rocks)',
     'Green seaweeds (Enteromorpha and Ulva combined)',
-    'Red seaweeds (all species combined)',
-    'Kelps (Laminaria and Saccharina species combined)',
     'Pelvetia canaliculata (brown seaweed)',
     'Fucus spiralis (brown seaweed)',
+    'Ascophyllum nodosum (brown seaweed)',
     'Fucus vesiculosus (brown seaweed)',
     'Fucus serratus (brown seaweed)',
-    'Ascophyllum nodosum (brown seaweed)',
     'Himanthalia (brown seaweed)',
+    'Kelps (Laminaria and Saccharina species combined)',
+    'Red seaweeds (all species combined)',
+    'Tiny periwinkle (Melaraphe neritoides)',
+    'Mussels (Mytilus)',
     'Chthamalus barnacles',
     'Semibalanus barnacles',
-    'Tiny periwinkle (Melaraphe neritoides)',
-    'Periwinkles (Littorina saxatilis and L. littorea)',
     'Flat periwinkles (Littorina mariae/obtusata)',
+    'Periwinkles (Littorina saxatilis and L. littorea)',
     'Limpets (Patella)',
     'Dog whelks (Nucella)',
-    'Mussels (Mytilus)',
     'Beadlet anemone (Actinia equina)',
     'Tube worms (Spirorbis etc.)'
 ];
 
 const COLUMN_DEFS = [
-    { inputType: 'dropdown', color: '#F1BB7B' },
-    { inputType: 'dropdown', color: '#FD6467' },
-    { inputType: 'dropdown', color: '#D67236' },
-    { inputType: 'dropdown', color: '#5B1A18' },
-    { inputType: 'dropdown', color: '#3B9AB2' },
-    { inputType: 'dropdown', color: '#E1AF00' },
-    { inputType: 'dropdown', color: '#F21A00' },
-    { inputType: 'dropdown', color: '#78B7C5' },
-    { inputType: 'dropdown', color: '#00A08A' },
-    { inputType: 'dropdown', color: '#F98400' },
-    { inputType: 'dropdown', color: '#5BBCD6' },
-    { inputType: 'dropdown', color: '#FF0000' },
-    { inputType: 'dropdown', color: '#899DA4' },
-    { inputType: 'dropdown', color: '#C93312' },
-    { inputType: 'dropdown', color: '#FAEFD1' },
-    { inputType: 'dropdown', color: '#DC863B' },
-    { inputType: 'dropdown', color: '#AA9486' },
-    { inputType: 'dropdown', color: '#D9D0D3' },
-    { inputType: 'dropdown', color: '#8D8680' },
-    { inputType: 'dropdown', color: '#F3DF6C' },
-    { inputType: 'dropdown', color: '#CEAB07' },
-    { inputType: 'text',     color: '#9C964A' },
-    { inputType: 'text',     color: '#85D4E3' },
+    { inputType: 'dropdown', color: '#F1BB7B', default_taxon: TAXON_NAMES[0],  default_type: '% cover' }, // Lichens (other than Verrucaria)
+    { inputType: 'dropdown', color: '#FD6467', default_taxon: TAXON_NAMES[1],  default_type: '% cover' }, // Verrucaria (black coating on rocks)
+    { inputType: 'dropdown', color: '#D67236', default_taxon: TAXON_NAMES[2],  default_type: '% cover' }, // Green seaweeds (Enteromorpha and Ulva combined)
+    { inputType: 'dropdown', color: '#5B1A18', default_taxon: TAXON_NAMES[3],  default_type: '% cover' }, // Pelvetia canaliculata (brown seaweed)
+    { inputType: 'dropdown', color: '#3B9AB2', default_taxon: TAXON_NAMES[4],  default_type: '% cover' }, // Fucus spiralis (brown seaweed)
+    { inputType: 'dropdown', color: '#E1AF00', default_taxon: TAXON_NAMES[5],  default_type: '% cover' }, // Ascophyllum nodosum (brown seaweed)
+    { inputType: 'dropdown', color: '#F21A00', default_taxon: TAXON_NAMES[6],  default_type: '% cover' }, // Fucus vesiculosus (brown seaweed)
+    { inputType: 'dropdown', color: '#78B7C5', default_taxon: TAXON_NAMES[7],  default_type: '% cover' }, // Fucus serratus (brown seaweed)
+    { inputType: 'dropdown', color: '#00A08A', default_taxon: TAXON_NAMES[8],  default_type: '% cover' }, // Himanthalia (brown seaweed)
+    { inputType: 'dropdown', color: '#F98400', default_taxon: TAXON_NAMES[9],  default_type: '% cover' }, // Kelps (Laminaria and Saccharina species combined)
+    { inputType: 'dropdown', color: '#5BBCD6', default_taxon: TAXON_NAMES[10], default_type: '% cover' }, // Red seaweeds (all species combined)
+    { inputType: 'dropdown', color: '#FF0000', default_taxon: TAXON_NAMES[11], default_type: 'ordinal' }, // Tiny periwinkle (Melaraphe neritoides)
+    { inputType: 'dropdown', color: '#899DA4', default_taxon: TAXON_NAMES[12], default_type: 'ordinal' }, // Mussels (Mytilus)
+    { inputType: 'dropdown', color: '#C93312', default_taxon: TAXON_NAMES[13], default_type: '% cover' }, // Chthamalus barnacles
+    { inputType: 'dropdown', color: '#FAEFD1', default_taxon: TAXON_NAMES[14], default_type: '% cover' }, // Semibalanus barnacles
+    { inputType: 'dropdown', color: '#DC863B', default_taxon: TAXON_NAMES[15], default_type: 'count' }, // Flat periwinkles (Littorina mariae/obtusata)
+    { inputType: 'dropdown', color: '#AA9486', default_taxon: TAXON_NAMES[16], default_type: 'count' }, // Periwinkles (Littorina saxatilis and L. littorea)
+    { inputType: 'dropdown', color: '#D9D0D3', default_taxon: TAXON_NAMES[17], default_type: 'count' }, // Limpets (Patella)
+    { inputType: 'dropdown', color: '#8D8680', default_taxon: TAXON_NAMES[18], default_type: 'count' }, // Dog whelks (Nucella)
+    { inputType: 'dropdown', color: '#F3DF6C', default_taxon: TAXON_NAMES[19], default_type: 'count' }, // Beadlet anemone (Actinia equina)
+    { inputType: 'dropdown', color: '#CEAB07', default_taxon: TAXON_NAMES[20], default_type: 'count' }, // Tube worms (Spirorbis etc.)
+    { inputType: 'text',     color: '#9C964A', default_taxon: '',              default_type: 'count' }, // (free text)
+    { inputType: 'text',     color: '#85D4E3', default_taxon: '',              default_type: 'count' }, // (free text)
 ];
 
 // --- Variables ---
@@ -546,8 +547,8 @@ let shoreType = 'semi-exposed';
 // --- Helper functions ---
 function getInitialCols() {
     return COLUMN_DEFS.map((def) => ({
-        label: '',
-        type: 'count',
+        label: def.default_taxon,
+        type: def.default_type,
         color: def.color,
         inputType: def.inputType
     }));
@@ -656,106 +657,145 @@ function exportToCSV() {
 function combineFromCSVFiles(files) {
     if (!files || files.length === 0) return;
 
-    // Validate that the table has column headers and height rows set up
-    const hasColumns = dataCols.some(col => col.label.trim() !== '');
-    const hasRows = dataRows.length > 0 && dataRows.some(row => row.height !== '' && !isNaN(parseFloat(row.height)));
-    if (!hasColumns || !hasRows) {
-        alert('Please set up column headings and row heights in the table before combining CSV files.');
-        return;
-    }
+    // Reset column labels and types to defaults from COLUMN_DEFS
+    dataCols = getInitialCols();
 
-    // Build accumulator: accumulator[rowIdx][colIdx] = [values...]
-    const accumulator = dataRows.map(() => Array.from({length: NUM_DATA_COLS}, () => []));
-    let filesLoaded = 0;
-    let filesTotal = files.length;
-    let filesErrored = 0;
+    // Rows and heights come entirely from the CSVs
+    dataRows = [];
 
-    // Build a lookup: normalised label -> dataCols index
     function normalise(s) { return (s || '').trim().toLowerCase(); }
+    function normaliseType(s) {
+        const t = (s || '').trim().toLowerCase();
+        if (t.includes('cover')) return '% cover';
+        if (t.includes('ordinal')) return 'ordinal';
+        return 'count';
+    }
+    const heightKey = h => String(Math.round(h * 1000));
+
+    // accumulator: Map from height-key -> { height, data: Array<Array<number>> }
+    const accumulator = new Map();
+
     const colLabelMap = {};
     dataCols.forEach((col, i) => {
         const n = normalise(col.label);
         if (n) colLabelMap[n] = i;
     });
 
+    let filesLoaded = 0;
+    let filesTotal = files.length;
+    let filesErrored = 0;
+    const fileStats = [];
+
     function onAllLoaded() {
-        // Compute means and update dataRows
-        dataRows.forEach((row, rIdx) => {
+        accumulator.forEach((entry) => {
+            const newRow = createEmptyRow();
+            newRow.height = entry.height;
             for (let cIdx = 0; cIdx < NUM_DATA_COLS; cIdx++) {
-                const vals = accumulator[rIdx][cIdx].filter(v => v !== '' && !isNaN(v));
+                const vals = entry.data[cIdx].filter(v => !isNaN(v));
                 if (vals.length > 0) {
                     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-                    row.data[cIdx] = Math.round(mean * 100) / 100;
+                    newRow.data[cIdx] = Math.round(mean * 100) / 100;
                 }
-                // Leave existing value if no data was accumulated
             }
+            dataRows.push(newRow);
         });
+
+        // Sort all rows by height
+        dataRows.sort((a, b) => {
+            const ha = parseFloat(a.height);
+            const hb = parseFloat(b.height);
+            if (isNaN(ha)) return 1;
+            if (isNaN(hb)) return -1;
+            return ha - hb;
+        });
+
+        if (dataRows.length === 0) dataRows = [createEmptyRow()];
+
         renderTable();
         saveToStorage();
         clearPlot();
         document.getElementById('plotDataBtn').click();
-        const msg = filesErrored > 0
+
+        let msg = filesErrored > 0
             ? `Combined ${filesLoaded} of ${filesTotal} files (${filesErrored} could not be parsed).`
             : `Combined ${filesLoaded} file${filesLoaded !== 1 ? 's' : ''} successfully.`;
+        fileStats.forEach(stat => {
+            msg += `\n\n${stat.name}:\n  ${stat.matched} matched, ${stat.unmatched} not found, ${stat.typeMismatch} type mismatch (skipped).`;
+        });
         alert(msg);
     }
 
     Array.from(files).forEach(file => {
         const reader = new FileReader();
         reader.onload = function(e) {
+            const stat = { name: file.name, matched: 0, unmatched: 0, typeMismatch: 0 };
             try {
                 const content = e.target.result;
                 const lines = content.split(/\r?\n/).filter(line => line.trim());
-                if (lines.length < 3) { filesErrored++; if (++filesLoaded + filesErrored === filesTotal) onAllLoaded(); return; }
+                if (lines.length < 3) {
+                    filesErrored++;
+                    fileStats.push(stat);
+                    if (filesLoaded + filesErrored === filesTotal) onAllLoaded();
+                    return;
+                }
 
                 const headers = lines[0].split(',').map(h => h.trim());
+                const fileTypes = lines[1].split(',').map(t => t.trim());
                 const hasLength = headers.length >= 3 && normalise(headers[2]) === 'length';
                 const dataStartCol = hasLength ? 3 : 2;
 
-                // Map file column indices to dataCols indices
                 const fileColToDataCol = {};
                 for (let i = dataStartCol; i < headers.length; i++) {
                     const n = normalise(headers[i]);
+                    if (n === 'length') continue;
                     if (n && colLabelMap.hasOwnProperty(n)) {
-                        fileColToDataCol[i] = colLabelMap[n];
+                        const ci = colLabelMap[n];
+                        const fileType = normaliseType(fileTypes[i]);
+                        const appType = dataCols[ci].type;
+                        if (fileType === appType) {
+                            fileColToDataCol[i] = ci;
+                            stat.matched++;
+                        } else {
+                            stat.typeMismatch++;
+                        }
+                    } else if (n) {
+                        stat.unmatched++;
                     }
                 }
 
-                // Parse each data row and accumulate
                 for (let li = 2; li < lines.length; li++) {
                     const cols = lines[li].split(',').map(c => c.trim());
                     if (cols.length < 2) continue;
                     const fileHeight = parseFloat(cols[1]);
                     if (isNaN(fileHeight)) continue;
 
-                    // Find closest row in dataRows by height
-                    let closestIdx = 0;
-                    let closestDist = Infinity;
-                    dataRows.forEach((row, rIdx) => {
-                        const rh = parseFloat(row.height);
-                        if (!isNaN(rh)) {
-                            const dist = Math.abs(rh - fileHeight);
-                            if (dist < closestDist) { closestDist = dist; closestIdx = rIdx; }
-                        }
-                    });
-
-                    // Accumulate values for matching columns
+                    const key = heightKey(fileHeight);
+                    if (!accumulator.has(key)) {
+                        accumulator.set(key, {
+                            height: fileHeight,
+                            data: Array.from({length: NUM_DATA_COLS}, () => [])
+                        });
+                    }
+                    const entry = accumulator.get(key);
                     for (const [fi, ci] of Object.entries(fileColToDataCol)) {
                         const val = parseFloat(cols[parseInt(fi)]);
                         if (!isNaN(val)) {
-                            accumulator[closestIdx][ci].push(val);
+                            entry.data[ci].push(val);
                         }
                     }
                 }
 
                 filesLoaded++;
+                fileStats.push(stat);
             } catch (err) {
                 filesErrored++;
+                fileStats.push(stat);
             }
             if (filesLoaded + filesErrored === filesTotal) onAllLoaded();
         };
         reader.onerror = function() {
             filesErrored++;
+            fileStats.push({ name: file.name, matched: 0, unmatched: 0, typeMismatch: 0 });
             if (filesLoaded + filesErrored === filesTotal) onAllLoaded();
         };
         reader.readAsText(file);
