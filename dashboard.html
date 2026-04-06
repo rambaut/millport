@@ -344,9 +344,9 @@ function timeAgo(ts) {
     const now   = Date.now();
     const then  = new Date(ts.replace(' ', 'T') + '+00:00').getTime();
     const diff  = Math.round((now - then) / 1000);
-    if (diff <  60)  return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-    if (diff < 86400)return `${Math.floor(diff/3600)}h ago`;
+    if (diff <  120)  return `${diff}s ago`;
+    if (diff < 7200)  return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
     return new Date(then).toLocaleDateString();
 }
 
