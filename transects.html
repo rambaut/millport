@@ -371,7 +371,7 @@
 <body class="bg-light">
 <div class="container py-4" style="max-width: 1240px;">
     <div class="mb-1">
-        <h6 class="mb-0 text-muted">Quality Quadrat Quantification</h6>
+        <h6 class="mb-0 text-muted">Quintessential Quadrat Quantification</h6>
     </div>
     <div class="toolbar d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center flex-wrap gap-2">
@@ -781,7 +781,9 @@ function importFromCSV(file) {
                 dataCols[i - dataStartCol].label = headers[i] || '';
                 const importedType = (types[i] || 'count').toLowerCase();
                 // Normalize type to match dropdown values
-                dataCols[i - dataStartCol].type = importedType === '% cover' || importedType.includes('cover') ? '% cover' : 'count';
+                dataCols[i - dataStartCol].type = importedType === '% cover' || importedType.includes('cover') ? '% cover'
+                    : importedType === 'ordinal' || importedType.includes('ordinal') ? 'ordinal'
+                    : 'count';
             }
             // Parse data rows
             dataRows = [];
@@ -1039,6 +1041,7 @@ function renderTable() {
                         <select class="form-select form-select-sm table-cell-input" data-col-idx="${i}" onchange="onColTypeChange(event)">
                             <option value="count"${col.type==='count'?' selected':''}>count</option>
                             <option value="% cover"${col.type==='% cover'?' selected':''}>% cover</option>
+                            <option value="ordinal"${col.type==='ordinal'?' selected':''}>ordinal 1-10</option>
                         </select>
                     </div>
                 </th>
@@ -1132,6 +1135,7 @@ window.onDataCellChange = function(e) {
     const colIdx = +e.target.getAttribute('data-col-idx');
     let val = e.target.value;
     if (val === '' || isNaN(val)) val = '';
+    else if (dataCols[colIdx].type === 'ordinal') val = Math.min(10, Math.max(1, Math.round(Number(val))));
     else val = Math.max(0, Math.floor(Number(val)));
     dataRows[rowIdx].data[colIdx] = val;
     saveToStorage();
