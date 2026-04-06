@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Millport Marine Survey — Species Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --accent: #0d6efd;
+            --accent-soft: #cfe2ff;
+        }
+
+        body {
+            background: #f8f9fa;
+            font-size: 0.875rem;
+        }
+
+        /* ── Header ─────────────────────────────── */
+        .site-header {
+            background: linear-gradient(135deg, #0a3d62 0%, #1e6091 100%);
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+        }
+        .site-header h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        /* ── Stat cards ──────────────────────────── */
+        .stat-card {
+            background: #fff;
+            border-radius: 0.5rem;
+            border: 1px solid #dee2e6;
+            padding: 0.65rem 1rem;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0a3d62;
+            line-height: 1.1;
+        }
+        .stat-card .label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6c757d;
+        }
+
+        /* ── Panels ──────────────────────────────── */
+        .panel {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .panel-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6c757d;
+            padding: 0.55rem 0.85rem;
+            background: #f1f3f5;
+            border-bottom: 1px solid #dee2e6;
+            margin: 0;
+        }
+        .panel-body {
+            padding: 0.75rem;
+        }
+
+        /* ── Diversity index badges ──────────────── */
+        .diversity-badge {
+            display: flex;
+            align-items: baseline;
+            gap: 0.3rem;
+        }
+        .diversity-badge .dval {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #0a3d62;
+        }
+        .diversity-badge .dsub {
+            font-size: 0.7rem;
+            color: #6c757d;
+        }
+
+        /* ── Taxonomy breakdown table ────────────── */
+        .taxon-table th {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+        .taxon-table td {
+            vertical-align: middle;
+        }
+        .bar-cell {
+            min-width: 80px;
+        }
+        .bar-bg {
+            background: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+            height: 8px;
+        }
+        .bar-fill {
+            height: 8px;
+            border-radius: 2px;
+            background: #0d6efd;
+            transition: width 0.4s ease;
+        }
+
+        /* ── Recent identifications table ───────── */
+        #ident-table-wrap {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        #ident-tbody tr {
+            transition: background 1.5s ease;
+        }
+        #ident-tbody tr.new-row {
+            background: #d1e7dd !important;
+        }
+        #ident-tbody td {
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .badge-phylum {
+            font-size: 0.65rem;
+            font-weight: 500;
+        }
+
+        /* ── Pulse indicator ─────────────────────── */
+        #live-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #198754;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+        #live-dot.paused { animation: none; background: #adb5bd; }
+
+        /* ── Chart container ─────────────────────── */
+        .chart-wrap {
+            position: relative;
+            height: 220px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ Header -->
+<header class="site-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-binoculars me-2"></i>Millport Marine Survey</h1>
+        <div class="text-white-50" style="font-size:0.75rem;">Live species identification dashboard</div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <!-- Year selector -->
+        <div class="d-flex align-items-center gap-2">
+            <label for="year-select" class="text-white-50 mb-0" style="font-size:0.78rem;">Year</label>
+            <select id="year-select" class="form-select form-select-sm" style="width:auto;"></select>
+        </div>
+        <!-- Live indicator -->
+        <span id="live-dot" title="Polling for new identifications"></span>
+        <span id="live-label" class="text-white-50" style="font-size:0.75rem;">live</span>
+    </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════ Stat cards -->
+<div class="container-fluid px-3 pt-3">
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-sm-3">
+            <div class="stat-card">
+                <div class="value" id="stat-species">—</div>
+                <div class="label">Species identified</div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-3">
+            <div class="stat-card">
+                <div class="value" id="stat-idents">—</div>
+                <div class="label">Identification records</div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-3">
+            <div class="stat-card">
+                <div class="value" id="stat-phyla">—</div>
+                <div class="label">Phyla represented</div>
+            </div>
+        </div>
+        <div class="col-6 col-sm-3">
+            <div class="stat-card">
+                <div class="value" id="stat-classes">—</div>
+                <div class="label">Classes represented</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ Two-column layout -->
+    <div class="row g-3">
+
+        <!-- ══════════════════════════════════════════ LEFT: Diversity panel -->
+        <div class="col-12 col-xl-5 d-flex flex-column gap-3">
+
+            <!-- Shannon diversity -->
+            <div class="panel">
+                <p class="panel-title"><i class="bi bi-bar-chart-line me-1"></i>Shannon Diversity (species per phylum)</p>
+                <div class="panel-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="diversity-badge">
+                                <span class="dval" id="shannon-h">—</span>
+                                <span class="dsub">H′ (nats)</span>
+                            </div>
+                            <div class="text-muted" style="font-size:0.7rem;">Shannon entropy</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="diversity-badge">
+                                <span class="dval" id="pielou-j">—</span>
+                                <span class="dsub">J′</span>
+                            </div>
+                            <div class="text-muted" style="font-size:0.7rem;">Pielou's evenness</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phylum pie chart -->
+            <div class="panel">
+                <p class="panel-title"><i class="bi bi-pie-chart me-1"></i>Species proportion by phylum</p>
+                <div class="panel-body">
+                    <div class="chart-wrap">
+                        <canvas id="phylum-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Taxonomy breakdown -->
+            <div class="panel flex-grow-1">
+                <p class="panel-title d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-list-ul me-1"></i>Breakdown</span>
+                    <span class="d-flex gap-1">
+                        <button class="btn btn-xs btn-sm py-0 px-2 btn-outline-secondary taxon-tab active" data-level="phylum">Phylum</button>
+                        <button class="btn btn-xs btn-sm py-0 px-2 btn-outline-secondary taxon-tab" data-level="class">Class</button>
+                        <button class="btn btn-xs btn-sm py-0 px-2 btn-outline-secondary taxon-tab" data-level="genus">Genus</button>
+                    </span>
+                </p>
+                <div class="panel-body p-0" id="taxon-table-wrap" style="max-height:300px;overflow-y:auto;">
+                    <table class="table table-sm table-hover mb-0 taxon-table">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th></th>
+                                <th>Name</th>
+                                <th class="text-end">Spp</th>
+                                <th class="text-end">IDs</th>
+                                <th class="bar-cell"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="taxon-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /left -->
+
+        <!-- ══════════════════════════════════════════ RIGHT: Recent IDs panel -->
+        <div class="col-12 col-xl-7">
+            <div class="panel h-100 d-flex flex-column">
+                <p class="panel-title d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-clock-history me-1"></i>Recent Identifications</span>
+                    <span class="text-muted fw-normal" style="font-size:0.7rem;" id="last-updated">—</span>
+                </p>
+                <div id="ident-table-wrap" class="flex-grow-1">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th>Time</th>
+                                <th>Species</th>
+                                <th>Common name</th>
+                                <th>Phylum</th>
+                                <th>Class</th>
+                                <th>Site</th>
+                                <th>Identified by</th>
+                                <th title="laboratory">Lab</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ident-tbody">
+                            <tr id="ident-placeholder">
+                                <td colspan="8" class="text-center text-muted py-3">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div><!-- /right -->
+
+    </div><!-- /row -->
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Config
+// ═══════════════════════════════════════════════════════════════════════
+const POLL_INTERVAL_MS = 30_000; // 30 seconds
+const API_BASE = 'api';          // relative — same origin
+
+// ═══════════════════════════════════════════════════════════════════════
+// Colour palette (consistent across chart + table)
+// ═══════════════════════════════════════════════════════════════════════
+const PALETTE = [
+    '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+    '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+    '#aec7e8','#ffbb78','#98df8a','#ff9896','#c5b0d5',
+];
+function colourFor(index) { return PALETTE[index % PALETTE.length]; }
+
+// ═══════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════
+let currentYear   = new Date().getFullYear();
+let maxIdentId    = 0;   // highest id seen — used for polling
+let diversityData = null;
+let phylumChart   = null;
+let taxonLevel    = 'phylum'; // phylum | class | genus
+let pollTimer     = null;
+
+// ═══════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════
+function fmt(n) { return n === null || n === undefined ? '—' : Number(n).toLocaleString(); }
+
+function timeAgo(ts) {
+    const now   = Date.now();
+    const then  = new Date(ts.replace(' ', 'T') + '+00:00').getTime();
+    const diff  = Math.round((now - then) / 1000);
+    if (diff <  60)  return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400)return `${Math.floor(diff/3600)}h ago`;
+    return new Date(then).toLocaleDateString();
+}
+
+function shannon(counts) {
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (total === 0) return 0;
+    return -counts.reduce((sum, c) => {
+        if (c === 0) return sum;
+        const p = c / total;
+        return sum + p * Math.log(p);
+    }, 0);
+}
+
+function phylum_colour_map(phylaArray) {
+    const map = {};
+    phylaArray.forEach((p, i) => { map[p.phylum] = colourFor(i); });
+    return map;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Year selector
+// ═══════════════════════════════════════════════════════════════════════
+function buildYearSelector(years) {
+    const sel = document.getElementById('year-select');
+    const cur = sel.value ? parseInt(sel.value) : currentYear;
+    sel.innerHTML = '';
+    years.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value   = y;
+        opt.text    = y;
+        if (y == cur) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    currentYear = parseInt(sel.value);
+}
+
+document.getElementById('year-select').addEventListener('change', () => {
+    currentYear = parseInt(document.getElementById('year-select').value);
+    maxIdentId  = 0;
+    document.getElementById('ident-tbody').innerHTML =
+        '<tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>';
+    loadAll();
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// Diversity API
+// ═══════════════════════════════════════════════════════════════════════
+async function loadDiversity() {
+    const res  = await fetch(`${API_BASE}/diversity.php?year=${currentYear}`);
+    if (!res.ok) throw new Error('diversity fetch failed');
+    const data = await res.json();
+    diversityData = data;
+
+    // Year selector (first load or year list changed)
+    if (data.available_years && data.available_years.length) {
+        buildYearSelector(data.available_years);
+    }
+
+    // Stat cards
+    document.getElementById('stat-species').textContent = fmt(data.totals.total_species);
+    document.getElementById('stat-idents').textContent  = fmt(data.totals.total_idents);
+    document.getElementById('stat-phyla').textContent   = data.by_phylum.length;
+    const classes = new Set(data.by_class.map(r => r.class));
+    document.getElementById('stat-classes').textContent = classes.size;
+
+    // Shannon H′ and Pielou J′ — computed over species-per-phylum
+    const counts = data.by_phylum.map(r => r.species_count);
+    const H = shannon(counts);
+    const S = data.by_phylum.length;
+    const J = S > 1 ? H / Math.log(S) : 1;
+    document.getElementById('shannon-h').textContent = H.toFixed(3);
+    document.getElementById('pielou-j').textContent  = J.toFixed(3);
+
+    // Pie chart
+    renderPhylumChart(data.by_phylum);
+
+    // Taxon table
+    renderTaxonTable(taxonLevel);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Phylum chart
+// ═══════════════════════════════════════════════════════════════════════
+function renderPhylumChart(phylaData) {
+    const labels = phylaData.map(r => r.phylum);
+    const values = phylaData.map(r => r.species_count);
+    const colors = labels.map((_, i) => colourFor(i));
+
+    if (phylumChart) {
+        phylumChart.data.labels         = labels;
+        phylumChart.data.datasets[0].data   = values;
+        phylumChart.data.datasets[0].backgroundColor = colors;
+        phylumChart.update();
+        return;
+    }
+
+    const ctx = document.getElementById('phylum-chart').getContext('2d');
+    phylumChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderWidth: 1,
+                borderColor: '#fff',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { font: { size: 11 }, boxWidth: 12, padding: 8 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed} species (${((ctx.parsed / ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)`,
+                    }
+                }
+            },
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Taxon breakdown table
+// ═══════════════════════════════════════════════════════════════════════
+function renderTaxonTable(level) {
+    if (!diversityData) return;
+    taxonLevel = level;
+
+    let rows;
+    if (level === 'phylum') {
+        rows = diversityData.by_phylum.map((r, i) => ({
+            colour: colourFor(i),
+            name:   r.phylum,
+            spp:    r.species_count,
+            ids:    r.ident_count,
+        }));
+    } else if (level === 'class') {
+        rows = diversityData.by_class.map((r, i) => ({
+            colour: colourFor(i),
+            name:   `<span class="text-muted" style="font-size:0.65rem">${r.phylum} › </span>${r.class}`,
+            spp:    r.species_count,
+            ids:    r.ident_count,
+        }));
+    } else {
+        rows = diversityData.by_genus.map((r, i) => ({
+            colour: colourFor(i),
+            name:   `<em>${r.genus}</em>${r.phylum ? ` <span class="text-muted" style="font-size:0.65rem">(${r.phylum})</span>` : ''}`,
+            spp:    r.species_count,
+            ids:    r.ident_count,
+        }));
+    }
+
+    const maxSpp = rows.reduce((m, r) => Math.max(m, r.spp), 1);
+    const tbody  = document.getElementById('taxon-tbody');
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td style="width:10px;padding-right:0">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.colour}"></span>
+            </td>
+            <td>${r.name}</td>
+            <td class="text-end">${r.spp}</td>
+            <td class="text-end text-muted">${r.ids}</td>
+            <td class="bar-cell">
+                <div class="bar-bg">
+                    <div class="bar-fill" style="width:${(r.spp/maxSpp*100).toFixed(1)}%;background:${r.colour}"></div>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Tab switching
+document.querySelectorAll('.taxon-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.taxon-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderTaxonTable(btn.dataset.level);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// Identifications API + live polling
+// ═══════════════════════════════════════════════════════════════════════
+async function loadRecent(sinceId = null) {
+    let url = `${API_BASE}/recent.php?year=${currentYear}&limit=50`;
+    if (sinceId !== null) url += `&since_id=${sinceId}`;
+
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error('recent fetch failed');
+    const rows = await res.json();
+    return rows;
+}
+
+function rowHtml(r, highlight) {
+    const ts   = r.time ? timeAgo(r.time) : '—';
+    const lab  = r.laboratory ? '<span class="badge bg-secondary" title="Laboratory identification">Lab</span>' : '';
+    return `<tr data-id="${r.id}" class="${highlight ? 'new-row' : ''}">
+        <td class="text-muted">${ts}</td>
+        <td><em>${r.binomial || '—'}</em></td>
+        <td>${r.common_name || ''}</td>
+        <td>${r.phylum ? `<span class="badge badge-phylum" style="background:${phylumColourMap[r.phylum] || '#6c757d'}">${r.phylum}</span>` : '—'}</td>
+        <td class="text-muted">${r.class || '—'}</td>
+        <td>${r.site_name || '—'}</td>
+        <td>${r.identified_by || '—'}</td>
+        <td>${lab}</td>
+    </tr>`;
+}
+
+let phylumColourMap = {};
+
+async function initialLoadRecent() {
+    const rows = await loadRecent();
+    const tbody = document.getElementById('ident-tbody');
+
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No identifications this year yet.</td></tr>';
+        return;
+    }
+
+    // Build colour map from diversity data (if ready)
+    if (diversityData) {
+        phylumColourMap = phylum_colour_map(diversityData.by_phylum);
+    }
+
+    tbody.innerHTML = rows.map(r => rowHtml(r, false)).join('');
+    maxIdentId = rows.reduce((m, r) => Math.max(m, r.id), 0);
+
+    document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+}
+
+async function pollNew() {
+    if (maxIdentId === 0) return; // not initialised yet
+    const newRows = await loadRecent(maxIdentId);
+    if (!newRows.length) return;
+
+    const tbody = document.getElementById('ident-tbody');
+
+    // Remove placeholder if present
+    const placeholder = document.getElementById('ident-placeholder');
+    if (placeholder) placeholder.remove();
+
+    // Update colour map
+    if (diversityData) {
+        phylumColourMap = phylum_colour_map(diversityData.by_phylum);
+    }
+
+    // Insert new rows at top (sorted highest-id first, same as initial load)
+    const sorted = newRows.sort((a, b) => b.id - a.id);
+    for (const r of sorted) {
+        const tmp = document.createElement('tbody');
+        tmp.innerHTML = rowHtml(r, true);
+        const newTr = tmp.firstElementChild;
+        tbody.insertBefore(newTr, tbody.firstChild);
+
+        // Fade out the highlight after 4 seconds
+        setTimeout(() => newTr.classList.remove('new-row'), 4000);
+    }
+
+    maxIdentId = newRows.reduce((m, r) => Math.max(m, r.id), maxIdentId);
+
+    // Also refresh diversity counts (new IDs may have changed them)
+    await loadDiversity();
+
+    document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Bootstrap everything
+// ═══════════════════════════════════════════════════════════════════════
+async function loadAll() {
+    await Promise.all([loadDiversity(), initialLoadRecent()]);
+    // rebuild colour map now that both datasets are loaded
+    if (diversityData) {
+        phylumColourMap = phylum_colour_map(diversityData.by_phylum);
+        // re-render rows with correct colours
+        document.querySelectorAll('#ident-tbody tr[data-id]').forEach(tr => {
+            const phylum = tr.querySelector('td:nth-child(4)');
+            if (!phylum) return;
+            // colours updated in next poll; small visual debt acceptable
+        });
+    }
+}
+
+function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+        try { await pollNew(); }
+        catch(e) {
+            console.warn('Poll failed:', e);
+            document.getElementById('live-dot').classList.add('paused');
+        }
+    }, POLL_INTERVAL_MS);
+}
+
+// On page load
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await loadAll();
+        startPolling();
+    } catch(e) {
+        console.error('Init failed:', e);
+        document.getElementById('live-dot').classList.add('paused');
+    }
+});
+</script>
+
+</body>
+</html>

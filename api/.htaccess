@@ -1,0 +1,4 @@
+# Deny direct HTTP access to the credentials file
+<Files "config.php">
+    Require all denied
+</Files>
