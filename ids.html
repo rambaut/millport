@@ -1,0 +1,608 @@
+<?php
+	include("../millport.inc");
+	 
+	$view = GetStr('view');
+	
+	function writeIdent($ident) {
+		$class = ($species["class"] ? " (class ".$species["class"].")" : "");
+		$name = ($species["name"] ? " - ".$species["name"] : "");
+		printf("<p><i>%s</i> %s %s</p>\n", 
+					getBinomial($species), 
+					$class, 
+					$name
+					);
+
+	}
+
+	connectToDatabase("millport");
+
+	$id = GetInt('id');
+	$ident = null;
+	$species = null;
+	$phylum = null;
+	$title = null;
+	
+	$finish = mktime(21,0,0,4,6,2013);
+	$time=time();
+	$minutes_left = round(($finish - $time) / 60);
+	
+	$year_count = 2;
+	
+	$style = GetStr('style');
+	if (!$style) {
+		$style="display";
+	}
+
+	$year = GetStr('year');
+	if (!$year) {
+		$year = $current_year;
+	}
+	
+	$refresh_frequency = 10;
+	
+	if ($id > 1) {
+		//$result = mysqli_query($db,"SELECT * FROM identification WHERE id=\"$id\"");
+		//$ident = mysqli_fetch_array($result);
+		$query = $dbconn->prepare("SELECT * FROM identification WHERE id=:id");
+		$query->bindParam(':id', $id, PDO::PARAM_INT);
+		$query->execute();
+		$ident = $query->fetch(PDO::FETCH_ASSOC);
+		
+		//$result2 = mysqli_query($db,"SELECT * FROM species WHERE id=\"".$ident["species_id"]."\"");
+		//$species = mysqli_fetch_array($result2);
+		$query2 = $dbconn->prepare("SELECT * FROM species WHERE id=:id");
+		$query2->bindParam(':id', $ident["species_id"], PDO::PARAM_INT);
+		$query2->execute();
+		$species = $query2->fetch(PDO::FETCH_ASSOC);		
+		
+		if ($species) {
+			$title = "Intentification of ".getBinomial($species)." by ".$ident["identified_by"]." in lab ".$ident["laboratory"];
+
+			//$result3 = mysqli_query($db,"SELECT * FROM phyla WHERE id=\"".$species["phylum_id"]."\"");
+			//$phylum = mysqli_fetch_array($result3);
+			$query3 = $dbconn->prepare("SELECT * FROM phyla WHERE id=:id");
+			$query3->bindParam(':id', $species["phylum_id"], PDO::PARAM_INT);
+			$query3->execute();
+			$phylum = $query3->fetch(PDO::FETCH_ASSOC);
+		}
+		
+	}
+	
+	if (!$title) {
+		$title = "Field Zoology ".$year;
+	}
+
+	startPage();
+	if (!$view) {
+		writeHeader($title, null, null,  null, 
+			"<meta http-equiv=\"refresh\" content=\"".$refresh_frequency."\" />".
+			"<meta name=\"viewport\" content=\"width=320, initial-scale=1.0, user-scalable=yes\" />".
+			"<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\" />".
+			"<meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />"
+			);
+
+	} else {
+		writeHeader($title, null, null,  null, 
+			"<meta name=\"viewport\" content=\"width=320, initial-scale=1.0, user-scalable=yes\" />".
+			"<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\" />".
+			"<meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />"
+			);
+	}
+	
+	startBody();
+	if ($style != "display") {
+    	echo('<h1>'.$title.'</h1>');
+	    echo('<h2>Biodiversity exercise</h2>');
+	}
+
+	echo('	
+	<div id="contentContainer">
+	  <!-- Start main content wrapper -->
+
+	  <div id="content">
+		<!-- Start content -->
+		');
+		
+	if (!$view) {
+	
+//		echo('<h3>' .$minutes_left.' minutes to go...</h3>');
+//		echo('<h4>' .($max_location == 4? "excluding " : "including ").' benthic trawl identifications (as stated in course book)</h4>');
+		$this_year = getCumulativeSpeciesCounts($year);
+		$maxX = count(array_keys($this_year)) > 0 ? max(array_keys($this_year)): 0;
+		$maxY = count(array_values($this_year)) > 0 ? max(array_values($this_year)): 0;
+	
+		$last_year = getCumulativeSpeciesCounts($year - 1);
+		$maxX = count(array_keys($last_year)) > 0 ? max(array_keys($last_year)): 0;
+		$maxY = count(array_values($last_year)) > 0 ? max(array_values($last_year)): 0;
+
+		if ($year_count > 2) {
+			$prev_year = getCumulativeSpeciesCounts($year - 2);
+			$maxX = max($maxX, max(array_keys($prev_year)));
+			$maxY = max($maxY, max(array_values($prev_year)));
+		}
+			
+		$i = 0;
+		for ($y = $year; $y > $year - $year_count; $y --) {
+			$counts = getDiversity($y);
+			$diversity[$y] = $counts;
+//			$order[$i] = $counts['score'] + $counts['ids']; 
+			$order[$i] = $y;
+			$i ++; 
+		}
+	
+//		arsort($order);
+//		$order = array_keys($order);
+		
+		echo('<table id="ids"><tr>');
+		for ($i = 0; $i < $year_count; $i ++) {
+			$y = $order[$i];
+			$counts = $diversity[$y];
+			$score = $counts['score'] + $counts['ids'];
+			echo('<th id="year'.$i.'" colspan="3"><div class="title"><span>Year '.$y.'</span><span style="float: right">Score: '.$score.'</span></div></th>');
+		}
+		echo('</tr><tr>');
+		for ($i = 0; $i < $year_count; $i ++) {
+			$y = $order[$i];
+			
+			echo('<td id="year'.$i.'" colspan="3">');
+			$counts = $diversity[$y];
+
+			$unique_counts = getUniqueDiversity($y);
+			
+			echo('<div class="subtitle">Diversity Index: '.number_format($counts['diversity'], 2, '.', '').'</div>');
+			echo('<div class="info">Marine Phyla: '.$counts['phyla'].'   ('.$unique_counts['phyla'].' unique)</div>');
+			echo('<div class="info">Classes: '.$counts['classes'].'   ('.$unique_counts['classes'].' unique)</div>');
+			echo('<div class="info">Genera: '.$counts['genera'].'   ('.$unique_counts['genera'].' unique)</div>');
+			echo('<div class="info">Species: '.$counts['species'].'   ('.$unique_counts['species'].' unique)</div>');
+			echo('<div class="info">Identifications: '.$counts['ids'].'</div>');
+			drawPieChart(getPhylumSpeciesCounts($y), 450,180);
+			echo('</td>');
+		}
+		echo('</tr><tr>');
+		
+		/*
+		if ($style == "display") {
+			echo('<td id="year0" colspan="2">');
+			drawTimeChart(getCumulativeSpeciesCounts($year), getCumulativeIdentCounts($year), 580, 200, $maxX, $maxY);
+			echo('</td>');
+			echo('</tr><tr>');
+		}
+		*/
+		
+		$now = date_create()->getTimestamp();
+
+		$y = $current_year;
+		//$result = mysqli_query($db,"SELECT * FROM latest ORDER BY time DESC");
+		//if ($latest = mysqli_fetch_array($result)) {
+		$query = $dbconn->prepare("SELECT * FROM latest ORDER BY time DESC");
+		$query->execute();
+		if( $latest = $query->fetch() ) {
+			echo('<td id="year0" colspan="2">');
+			echo('<div class="title">Recent Identifications:</div>');
+
+			do {
+				$time = date_create($latest['time'])->getTimestamp(); 
+				$minutes = round(($now - $time) / 60);
+
+				//$result2 = mysqli_query($db,"SELECT * FROM species WHERE id=".$latest['species_id']."");
+				//$species = mysqli_fetch_array($result2);
+				$query2 = $dbconn->prepare("SELECT * FROM species WHERE id=:id");
+				$query2->bindParam(':id', $latest["species_id"], PDO::PARAM_INT);
+				$query2->execute();
+				$species = $query2->fetch(PDO::FETCH_ASSOC);
+//					print_r($species);
+
+				//$result2 = mysqli_query($db,"SELECT * FROM phyla WHERE id=".$species['phylum_id']."");
+				//$phylum = mysqli_fetch_array($result2);
+				$query2 = $dbconn->prepare("SELECT * FROM phyla WHERE id=:id");
+				$query2->bindParam(':id', $species["phylum_id"], PDO::PARAM_INT);
+				$query2->execute();
+				$phylum = $query2->fetch(PDO::FETCH_ASSOC);
+//					print_r($phylum);
+
+				//$result2 = mysqli_query($db,"SELECT * FROM identifications WHERE id=".$latest['ident_id']."");
+				//$ident = mysqli_fetch_array($result2);
+				$query2 = $dbconn->prepare("SELECT * FROM identifications WHERE id=:id");
+				$query2->bindParam(':id', $latest["ident_id"], PDO::PARAM_INT);
+				$query2->execute();
+				$ident = $query2->fetch(PDO::FETCH_ASSOC);
+//					print_r($ident);
+
+				$time = date_create($latest['time'])->getTimestamp(); 
+
+				$seconds = $now - $time;
+				if ($seconds < 60) {
+					$elapsed = $seconds. " seconds ago";
+				} else if ($seconds < 3600) {
+					$elapsed = round($seconds / 60). " minutes ago";
+				} else if ($seconds < 85400) {
+					$elapsed = round($seconds / 3600). " hours ago";
+				} else {
+					$elapsed = round($seconds / 86400). " days ago";
+				}
+			
+				$minutes = round($seconds / 60);
+			
+				$message = null;
+			
+				if ($latest['level']=="phylum" && $minutes < 30) {
+					$message = 'New phylum, '.$phylum['name'].'';
+				} else if ($latest['level']=="class" && $minutes < 10) {
+					$message = 'New class, '.$species['class'].' ('.$phylum['name'].')';
+				} else if ($latest['level']=="genus" && $minutes < 3) {
+					$message = 'New genus, <i>'.$species['genus'].'</i> ('.$species['class'].', '.$phylum['name'].')';
+				} else if ($latest['level']=="species" && $minutes < 1) {
+					$message = 'New species, <i>'.getBinomial($species).'</i> ('.$species['class'].', '.$phylum['name'].')';
+				}
+			
+				if ($message) {
+					echo('<hr /><div class="details">'.$message.'</div>');
+					echo('<div class="details">identified by '.$ident["identified_by"].', lab'.$ident["laboratory"].': '.$elapsed.'</div>');
+				}
+			} while  ($latest = $query->fetch(PDO::FETCH_ASSOC));
+			echo('</td>');
+		}
+//		echo('</tr><tr>');
+				
+		//$result = mysqli_query($db,"SELECT * FROM identifications WHERE year=$y ORDER BY time DESC".($style == "display" ? " LIMIT 5" : ""));
+		//if ($ident = mysqli_fetch_array($result)) {
+		$query = $dbconn->prepare(
+			"SELECT * FROM identifications WHERE year=:y ORDER BY time DESC"
+			. ($style == "display" ? " LIMIT 5" : "")
+			  );
+		$query->bindParam(':y', $y, PDO::PARAM_INT);
+		$query->execute();
+		if ($ident = $query->fetch(PDO::FETCH_ASSOC)) {
+			$time = date_create($ident['time'])->getTimestamp(); 
+			$days_ago = round($now - $time) / 86400;
+			if ($days_ago < 3) { 
+
+				echo('<td id="year0" colspan="2">');
+				echo('<div class="title">Identifications:</div>');
+				$fade = 1.0;
+			
+				do {
+					//$result2 = mysqli_query($db,"SELECT * FROM species WHERE id=\"".$ident["species_id"]."\"");
+					//$species = mysqli_fetch_array($result2);
+					$query2 = $dbconn->prepare("SELECT * FROM species WHERE id=:id");
+					$query2->bindParam(':id', $ident["species_id"], PDO::PARAM_INT);
+					$query2->execute();
+					$species = $query2->fetch(PDO::FETCH_ASSOC);
+					
+					//$result3 = mysqli_query($db,"SELECT * FROM phyla WHERE id=\"".$species["phylum_id"]."\"");
+					//$phylum = mysqli_fetch_array($result3);
+					$query3 = $dbconn->prepare("SELECT * FROM phyla WHERE id=:id");
+					$query3->bindParam(':id', $species["phylum_id"], PDO::PARAM_INT);
+					$query3->execute();
+					$phylum = $query3->fetch(PDO::FETCH_ASSOC);
+					
+					$time = date_create($ident['time'])->getTimestamp(); 
+					$diff = round($now - $time);
+					if ($diff < 60) {
+						$elapsed = $diff. " seconds ago";
+					} else if ($diff < 3600) {
+						$elapsed = round($diff / 60). " minutes ago";
+					} else if ($diff < 85400) {
+						$elapsed = round($diff / 3600). " hours ago";
+					} else {
+						$elapsed = round($diff / 86400). " days ago";
+					}
+
+					echo('
+						<hr />
+						<div class="details">
+							<a href="species.html?id='.$species["id"].'" rel="self"><i>'.getBinomial($species).'</i> (phylum '.$phylum["name"].')</a>
+						</div>');
+					echo('<div class="details">'.$species["class"].($species["name"]?' ('.$species["name"].')':'').'</div>');
+					echo('<div class="details">identified by '.$ident["identified_by"].', '.$elapsed.'</div>');
+
+					$fade = $fade * 0.95;
+				} while ($ident = $query->fetch(PDO::FETCH_ASSOC));
+				
+				echo('</td>');
+			}
+		}
+				
+				//		echo('</tr><tr>');
+
+		echo('<td id="year0" colspan="2">');
+		echo('<div class="title">Unique identifications this year:</div>');
+		$fade = 1.0;
+			
+		$count = 0;
+		
+		//$result = mysqli_query($db,"SELECT * FROM identifications WHERE year=".$current_year." ORDER BY time DESC");
+		//if ($ident = mysqli_fetch_array($result)) {
+		$query = $dbconn->prepare("SELECT * FROM identifications WHERE year=:y ORDER BY time DESC");
+		$query->bindParam(':y', $current_year, PDO::PARAM_INT);
+		$query->execute();
+		if ($ident = $query->fetch(PDO::FETCH_ASSOC)) {	  
+			do {				
+				$include = true;
+
+				//$result2 = mysqli_query($db,"SELECT * FROM species WHERE id=\"".$ident["species_id"]."\"");
+				//if ($species = mysqli_fetch_array($result2)) {
+				$query2 = $dbconn->prepare("SELECT * FROM species WHERE id=:id");
+				$query2->bindParam(':id', $ident["species_id"], PDO::PARAM_INT);
+				$query2->execute();
+				if ($species = $query2->fetch(PDO::FETCH_ASSOC)) {
+					$genus = $species['genus'];
+					if (strtoupper($genus) == "UNKNOWN" || $genus == "?" || $genus == null) {
+						$include = false;	
+					}
+
+					if ($species['phylum_id'] == 18 || $species['phylum_id'] == 17) {
+						$include = false;	
+					}
+				}
+
+				if ($include) {
+					//$result2 = mysqli_query($db,"SELECT * FROM identifications WHERE year=".$current_year." AND species_id=\"".$ident["species_id"]."\"");
+					//if (!mysqli_fetch_array($result2)) {
+					$query2 = $dbconn->prepare("SELECT * FROM identifications WHERE year=:y AND species_id=:id");
+					$query2->bindParam(':y', $current_year, PDO::PARAM_INT);
+					$query2->bindParam(':id', $ident["species_id"], PDO::PARAM_INT);
+					$query2->execute();
+					if (!$query2->fetch(PDO::FETCH_ASSOC)) {
+						//$result3 = mysqli_query($db,"SELECT * FROM species WHERE id=\"".$ident["species_id"]."\"");
+						//$species = mysqli_fetch_array($result3);
+						$query3 = $dbconn->prepare("SELECT * FROM species WHERE id==:id");
+						$query3->bindParam(':id', $ident["species_id"], PDO::PARAM_INT);
+						$query3->execute();
+						$species = $query3->fetch(PDO::FETCH_ASSOC);
+						
+						//$result4 = mysqli_query($db,"SELECT * FROM phyla WHERE id=\"".$species["phylum_id"]."\"");
+						//$phylum = mysqli_fetch_array($result4);
+						$query4 = $dbconn->prepare("SELECT * FROM phyla WHERE id=:id");
+						$query4->bindParam(':id', $species["phylum_id"], PDO::PARAM_INT);
+						$query4->execute();
+						$phylum = $query4->fetch(PDO::FETCH_ASSOC);
+						
+						$time = date_create($ident['time'])->getTimestamp(); 
+						$diff = round($now - $time);
+						if ($diff < 60) {
+							$elapsed = $diff. " seconds ago";
+						} else if ($diff < 3600) {
+							$elapsed = round($diff / 60). " minutes ago";
+						} else if ($diff < 85400) {
+							$elapsed = round($diff / 3600). " hours ago";
+						} else {
+							$elapsed = round($diff / 86400). " days ago";
+						}
+	
+						echo('
+							<hr />
+							<div class="details">
+								<a href="species.html?id='.$species["id"].'" rel="self"><i>'.getBinomial($species).'</i> (phylum '.$phylum["name"].')</a>
+							</div>');
+						echo('<div class="details">'.$species["class"].($species["name"]?' ('.$species["name"].')':'').'</div>');
+						echo('<div class="details">identified by '.$ident["identified_by"].', '.$elapsed.'</div>');
+	
+						$count++;
+						$fade = $fade * 0.95;
+					}
+				}
+				
+				
+				if ($style == "display" && $count >= 5) {
+					break;
+				}
+			} while ($ident = $query->fetch(PDO::FETCH_ASSOC));
+			
+			echo('</td>');
+		}
+
+		echo('</tr></table>');
+	} else if ($view == "years") {
+	
+		for ($y = 2010; $y <= $current_year; $y ++) {
+			$counts = getDiversity($y);
+			if ($counts['phyla'] > 0) {
+				$diversity[$y] = $counts;
+			}
+		}
+		
+		$i = 0;
+		for ($y = $current_year; $y >= 2010; $y --) {
+			if (isset($diversity[$y]) && $counts = $diversity[$y]) {
+				$phylumCounts = getPhylumSpeciesCounts($y);
+				ksort($phylumCounts);
+
+				echo('<table id="ids"><tr>');
+				echo('<th id="year'.$i.'" colspan="3"><div class="title">Year '.$y.'</div></th>');
+				echo('</tr><tr>');
+				echo('<td id="year'.$i.'">');
+				echo('<div class="subtitle">Diversity Index: '.number_format($counts['diversity'], 2, '.', '').'</div>');
+				echo('<div class="info">Phyla: '.$counts['phyla'].'</div>');
+				echo('<div class="info">Classes: '.$counts['classes'].'</div>');
+				echo('<div class="info">Genera: '.$counts['genera'].'</div>');
+				echo('<div class="info">Species: '.$counts['species'].'</div>');
+				echo('<div class="info">Identifications: '.$counts['ids'].'</div>');
+				echo('</td>');
+				echo('<td id="year'.$i.'" style="text-align:center">');
+				drawPieChart($phylumCounts, 380, 210);
+				echo('</td>');
+				echo('<td id="year'.$i.'">');
+				echo('<div class="subtitle">Species Counts:</div>');
+				$total = 0;
+				foreach ($phylumCounts as $phylum => $count) {
+					if ($phylum && $count > 0) {
+						$total += $count;
+					}
+				}
+				foreach ($phylumCounts as $phylum => $count) {
+					if ($phylum && $count > 0) {
+						$percent = round(($count * 100) / $total, 1);
+						echo('<div class="info">'.$phylum.': '.$count.' ('.$percent.'%)</div>');
+					}
+				}
+				echo('</td>');
+				echo('</tr>');
+				echo('</table><br>');
+			} else {
+				echo('<table id="ids"><tr>');
+				echo('<th id="year'.$i.'" colspan="3"><div class="title">Year '.$y.' - no data</div></th>');
+				echo('</tr>');
+				echo('</table><br>');
+			}	
+			$i++;
+		}
+
+	} else if ($view == "phyla") {
+	
+		//$result = mysqli_query($db,"SELECT * FROM phyla");
+		//while ($phylum = mysqli_fetch_array($result)) {
+		$query = $dbconn->prepare("SELECT * FROM phyla");
+		$query->execute();
+		while( $phylum = $query->fetch(PDO::FETCH_ASSOC) ) {
+			if (!$phylum['is_plant']) {
+				$classCounts = getClassSpeciesCounts($phylum['id']);
+				if ($classCounts) {
+					$sum = 0;
+					foreach ($classCounts as $count) {
+						$sum += $count;
+					}
+					$index = getDiversityIndex(null, null, $phylum['id']);
+	
+					echo('<table id="ids"><tr>');
+					echo('<th id="year1" colspan="3"><div class="title">Phylum '.$phylum['name'].'</div></th>');
+					echo('</tr><tr>');
+					echo('<td id="year1">');
+					echo('<div class="subtitle">Diversity Index: '.number_format($index, 2, '.', '').'</div>');
+					echo('<div class="info">Classes: '.count($classCounts).'</div>');
+					echo('<div class="info">Species: '.$sum.'</div>');
+					echo('</td>');
+					echo('<td style="text-align:center">');
+					drawPieChart($classCounts, 380,210);
+					echo('</td>');
+					echo('<td>');
+					echo('<div class="subtitle">Species Counts by Class:</div>');
+					$total = 0;
+					foreach ($classCounts as $class => $count) {
+						if ($class && $count > 0) {
+							$total += $count;
+						}
+					}
+					foreach ($classCounts as $class => $count) {
+						if ($class && $count > 0) {
+							$percent = round(($count * 100) / $total, 1);
+							echo('<div class="info">'.$class.': '.$count.' ('.$percent.'%)</div>');
+						}
+					}
+					echo('</td>');
+					echo('</tr>');
+					echo('</table><br>');
+				}	
+			}
+		}
+			
+					
+	} else if ($view == "sites") {
+	    echo('<h1>Sites</h1>');
+
+		$y = GetInt('year', NULL);
+
+		for ($s = 1; $s <= 8; $s ++) {
+			$counts = getDiversity($y, $s);
+			if ($counts['phyla'] > 0) {
+				$diversity[$s] = $counts;
+			}
+		}
+		/*
+	    echo('<h2>Dunstaffnage</h2>');
+		for ($s = 6; $s <= 8; $s ++) {
+			$counts = $diversity[$s];			
+			if ($counts) {
+				$result = mysqli_query($db,"SELECT * FROM sites WHERE id=$s");
+				$site = mysqli_fetch_array($result);
+
+				echo('<table id="ids"><tr>');
+				echo('<th id="site'.$s.'" colspan="3"><div class="title">'.$site['name'].'</div></th>');
+				echo('</tr><tr>');
+				echo('<td id="site'.$s.'">');
+				echo('<div class="subtitle">Diversity Index: '.number_format($counts['diversity'], 2, '.', '').'</div>');
+				echo('<div class="info">Phyla: '.$counts['phyla'].'</div>');
+				echo('<div class="info">Classes: '.$counts['classes'].'</div>');
+				echo('<div class="info">Genera: '.$counts['genera'].'</div>');
+				echo('<div class="info">Species: '.$counts['species'].'</div>');
+				echo('<div class="info">Identifications: '.$counts['ids'].'</div>');
+				echo('</td>');
+				echo('<td id="site'.$s.'">');
+				drawPieChart(getPhylumSpeciesCounts($y, null, $s), 350,210);
+				echo('</td>');
+				echo('<td id="site'.$s.'">');
+				echo($site['map']);
+				echo('</td>');
+				echo('</tr>');
+				echo('</table><br>');
+
+			}	
+		}
+		*/	
+	    echo('<h2>Cumbrae Island</h2>');
+		for ($s = 1; $s <= 3; $s ++) {
+			$counts = $diversity[$s];			
+			if ($counts) {
+				//$result = mysqli_query($db,"SELECT * FROM sites WHERE id=$s");
+				//$site = mysqli_fetch_array($result);
+				$query = $dbconn->prepare("SELECT * FROM sites WHERE id=:s");
+				$query->bindParam(':s', $s, PDO::PARAM_INT);
+				$query->execute();
+				$site = $query->fetch(PDO::FETCH_ASSOC);
+				
+				$phylumCounts = getPhylumSpeciesCounts($y, $s);
+				ksort($phylumCounts);
+
+				echo('<table id="ids"><tr>');
+				echo('<th id="site'.$s.'" colspan="3"><div class="title">'.$site['name'].'</div></th>');
+				echo('</tr><tr>');
+				echo('<td id="site'.$s.'">');
+				echo('<div class="subtitle">Diversity Index: '.number_format($counts['diversity'], 2, '.', '').'</div>');
+				echo('<div class="info">Phyla: '.$counts['phyla'].'</div>');
+				echo('<div class="info">Classes: '.$counts['classes'].'</div>');
+				echo('<div class="info">Genera: '.$counts['genera'].'</div>');
+				echo('<div class="info">Species: '.$counts['species'].'</div>');
+				echo('<div class="info">Identifications: '.$counts['ids'].'</div>');
+				echo('</td>');
+				echo('<td id="site'.$s.'" style="text-align:center">');
+				drawPieChart($phylumCounts, 380,210);
+				echo('</td>');
+				echo('<td id="site'.$s.'">');
+				echo('<div class="subtitle">Species Counts:</div>');
+				$total = 0;
+				foreach ($phylumCounts as $phylum => $count) {
+					if ($phylum && $count > 0) {
+						$total += $count;
+					}
+				}
+				foreach ($phylumCounts as $phylum => $count) {
+					if ($phylum && $count > 0) {
+						$percent = round(($count * 100) / $total, 1);
+						echo('<div class="info">'.$phylum.': '.$count.' ('.$percent.'%)</div>');
+					}
+				}
+				echo('</td>');
+				/*
+				echo('<td id="site'.$s.'">');
+				echo($site['map']);
+				echo('</td>');
+				*/
+				echo('</tr>');
+				echo('</table><br>');
+
+			}	
+		}
+	}
+
+	echo('
+	  </div><!-- End content -->
+	</div><!-- End main content wrapper -->
+		');
+
+	if ($style != "display") {
+		writeFooter(Array("ids"));
+	}
+	
+	finishPage();
+	
+?>

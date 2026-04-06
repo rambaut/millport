@@ -1,0 +1,172 @@
+<?php
+	include("../millport.inc");
+	 
+	connectToDatabase("millport");
+
+	$id = GetInt('id');
+	$lab = GetInt('lab');
+	$year = GetInt('year');
+	$species = null;
+	$phylum = null;
+	$title = null;
+	
+	if ($id > 0) {
+		$result = mysqli_query("SELECT * FROM Species WHERE id=\"$id\"",$db);
+
+		$species = mysqli_fetch_array($result);
+
+		if ($species) {
+			$title = getBinomial($species);
+
+			$result2 = mysqli_query("SELECT * FROM Phyla WHERE id=\"".$species["phylum_id"]."\"",$db);
+			$phylum = mysqli_fetch_array($result2);
+		}
+	}
+	
+	if (!$title) {
+		$title = "Field Zoology ".$current_year;
+	}
+
+	startPage();
+	writeHeader($title, "", "", "");
+	startBody();
+
+    echo('<h1>'.$title.'</h1>');
+    echo('<h2>Millport Species List</h2>');
+	
+	if (!$species) {
+		echo('	
+        <div id="contentContainer">
+          <!-- Start main content wrapper -->
+
+          <div id="content">
+            <!-- Start content -->
+			');
+		echo('<h3>Animals</h3>');
+
+		$filter = "";
+		if ($lab > 0) {
+			$filter = " AND laboratory=\"$lab\" AND year=$year";
+		}
+		
+		$result = mysqli_query("SELECT * FROM Phyla WHERE is_plant=0 ORDER BY name",$db);
+		if ($phylum = mysqli_fetch_array($result)) {
+			do {
+				$result2 = mysqli_query("SELECT * FROM species WHERE phylum_id=\"".$phylum["id"]."\" ORDER BY genus,species",$db);
+				if ($species = mysqli_fetch_array($result2)) {
+
+					echo('<table>');
+					echo('<tr><th>Phylum <a href="http://en.wikipedia.org/wiki/'.$phylum["name"].'" rel="self" target="_blank">'.$phylum["name"].'</a></th></tr>');	
+					do {
+						$result3 = mysqli_query("SELECT * FROM identifications WHERE species_id=\"".$species["id"]."\"".$filter,$db);
+						if ($result3 && mysqli_fetch_array($result3)) {
+							echo('<tr><td>');
+							writeSpecies($species);
+							echo('</td></tr>');
+						}
+					} while ($species = mysqli_fetch_array($result2));
+					echo('</table>');
+				}
+			} while ($phylum = mysqli_fetch_array($result));
+		}
+
+		echo('<h3>Plants/Algae</h3>');
+
+		$result = mysqli_query("SELECT * FROM Phyla WHERE is_plant=1 ORDER BY name ",$db);
+		if ($phylum = mysqli_fetch_array($result)) {
+			do {
+				$result2 = mysqli_query("SELECT * FROM Species WHERE phylum_id=\"".$phylum["id"]."\" ORDER BY genus,species",$db);
+				if ($species = mysqli_fetch_array($result2)) {
+		
+					echo('<table>');
+					echo('<tr><th>Phylum <a href="http://en.wikipedia.org/wiki/'.$phylum["name"].'" rel="self" target="_blank">'.$phylum["name"].'</a></th></tr>');	
+					do {
+						$result3 = mysqli_query("SELECT * FROM identifications WHERE species_id=\"".$species["id"]."\"".$filter,$db);
+						if ($result3 && mysqli_fetch_array($result3)) {
+							echo('<tr><td>');
+							writeSpecies($species);
+							echo('</td></tr>');
+						}
+					} while ($species = mysqli_fetch_array($result2));
+
+					echo('</table>');
+				}
+			} while ($phylum = mysqli_fetch_array($result));
+		}
+
+		echo('
+          </div><!-- End content -->
+        </div><!-- End main content wrapper -->
+        	');
+
+		writeFooter(Array("species"));
+	} else {
+	
+		echo('	
+        <div id="contentContainer">
+          <!-- Start main content wrapper -->
+
+          <div id="content">
+            <!-- Start content -->
+			');
+
+		echo('	
+            <h3><i>'.getBinomial($species).'</i></h3>
+            ');
+		echo('
+		  <div class="box-body">
+			  Species: <a href="http://en.wikipedia.org/wiki/'.getBinomial($species).'" rel="self" target="_blank"><i>'.getBinomial($species).'</a></i><br>
+			  Common name: '.$species["name"].'<br>
+			  Phylum: <a href="http://en.wikipedia.org/wiki/'.$phylum["name"].'" rel="self" target="_blank">'.$phylum["name"].'</a><br>
+			  Class: '.$species["class"].'<br>
+
+		 </div>');
+		 
+		 echo('	
+            <h3>Identifications</h3>
+    	');
+
+		for ($year = $current_year; $year >= $earliest_year; $year -= 1) {
+			if ($year != $current_year) {
+				echo('<h4>'.$year.'</h4>');
+			}
+			$result = mysqli_query("SELECT * FROM Identifications WHERE species_id=\"$id\" AND year=$year ORDER BY time DESC", $db);
+			if ($ident = mysqli_fetch_array($result)) {
+         		echo('<ol>');
+				do {
+					echo('<li>');
+					echo($ident["time"].' in laboratory '.$ident["laboratory"].'<br>');
+					if ($ident["identified_by"] != null) {
+						echo(' identified by '.$ident["identified_by"]);
+						if ($ident["corroborated_by"] != null) {
+							echo(' (corroborated by '.$ident["corroborated_by"].')');
+						}
+						echo('<br>');
+					}
+					if ($ident["site"] != null) {
+						$result2 = mysqli_query("SELECT * FROM sites WHERE id=".$ident["site"], $db);
+						$site = mysqli_fetch_array($result2);
+						echo(' site: '.$site["name"]);
+						echo('<br>');
+					}
+					echo('</li>');											
+				} while ($ident = mysqli_fetch_array($result));		
+				
+				echo('</ol>');
+			} else {
+				echo('No identifications');
+			}
+		}
+
+		
+		echo('
+			</ol>
+          </div><!-- End content -->
+       </div><!-- End main content wrapper -->
+        	');
+		writeFooter(Array("species", getBinomial($species)));
+	}
+
+	finishPage();
+	
+?>

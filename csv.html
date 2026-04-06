@@ -1,0 +1,170 @@
+<?php
+	include("../millport.inc");
+	 
+	$view = GetStr('view');
+	
+	function writeIdent($ident) {
+		$class = ($species["class"] ? " (class ".$species["class"].")" : "");
+		$name = ($species["name"] ? " - ".$species["name"] : "");
+		printf("<p><i>%s</i> %s %s</p>\n", 
+					getBinomial($species), 
+					$class, 
+					$name
+					);
+
+	}
+
+	connectToDatabase("millport");
+
+	$year = GetInt('year');
+	if (!$year) {
+		$year = $current_year;
+	}
+
+	echo('summary<br>');
+	
+	echo('year,class_size,tides,tides_at_sampling,diversity,phyla,classes,genera,species,identifications<br>');
+	$query2 = $dbconn->prepare("SELECT * FROM years");
+	$query2->execute();
+	while ($year_data = $query2->fetch(PDO::FETCH_ASSOC)) {
+		$y = $year_data['year'];
+		$counts = getDiversity($y);		
+		echo($y);
+		if ($counts) {
+			echo(','.$year_data['class_size']);
+			echo(','.$year_data['tides']);
+			echo(','.$year_data['tides_at_sampling']);
+			echo(','.number_format($counts['diversity'], 2, '.', ''));
+			echo(','.$counts['phyla']);
+			echo(','.$counts['classes']);
+			echo(','.$counts['genera']);
+			echo(','.$counts['species']);
+			echo(','.$counts['ids']);
+			echo('<br>');
+		}	
+	}
+	echo('<br>');
+
+	echo('diversity<br>');
+	echo('year');
+
+	//$result2 = mysqli_query("SELECT * FROM phyla",$dbconn);
+	//while ($phylum = mysqli_fetch_array($result2)) {
+	$query2 = $dbconn->prepare("SELECT * FROM phyla");
+	$query2->execute();
+	while ($phylum = $query2->fetch(PDO::FETCH_ASSOC)) {
+		if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+			echo(','.$phylum['name']);
+		}
+
+	}
+	echo('<br>');
+
+	for ($y = $current_year; $y >= 2010; $y --) {
+
+		echo($y);
+
+		//$result2 = mysqli_query("SELECT * FROM phyla",$dbconn);
+		//while ($phylum = mysqli_fetch_array($result2)) {
+		$query2 = $dbconn->prepare("SELECT * FROM phyla");
+		$query2->execute();
+		while ($phylum = $query2->fetch(PDO::FETCH_ASSOC)) {
+			if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+				$index = getDiversityIndex($y, null, $phylum['id']);
+				echo(','.$index);
+			}
+
+		}
+		echo('<br>');
+	}	
+
+	echo('<br>');
+	echo('species richness by Phylum<br>');
+	echo('year');
+	$query2 = $dbconn->prepare("SELECT * FROM phyla");
+	$query2->execute();
+	while ($phylum = $query2->fetch(PDO::FETCH_ASSOC)) {
+		if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+			echo(','.$phylum['name']);
+		}
+
+	}
+	for ($y = $current_year; $y >= 2010; $y --) {
+		echo($y);
+
+		//$result2 = mysqli_query("SELECT * FROM phyla",$dbconn);
+		//while ($phylum = mysqli_fetch_array($result2)) {
+		$query2 = $dbconn->prepare("SELECT * FROM phyla");
+		$query2->execute();
+		while ($phylum = $query2->fetch(PDO::FETCH_ASSOC)) {
+			if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+				$species_counts = getClassSpeciesCounts($phylum['id'], $y, null);
+				echo(','.count($species_counts));
+			}
+
+		}
+		echo('<br>');
+	}	
+
+	echo('<br>');
+	echo('species richness by Class<br>');
+	echo('year');
+
+	//$result2 = mysqli_query("SELECT * FROM phyla",$dbconn);
+	//while ($phylum = mysqli_fetch_array($result2)) {
+	$query2 = $dbconn->prepare("SELECT * FROM phyla");
+	$query2->execute();
+	while ($phylum = $query2->fetch(PDO::FETCH_ASSOC)) {
+		if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+			echo(','.$phylum['name']);
+		}
+	}
+	echo('<br>');
+	
+	for ($y = $current_year; $y >= 2010; $y --) {
+		
+		echo($y);
+
+		//$result2 = mysqli_query("SELECT * FROM phyla",$dbconn);
+		//while ($phylum = mysqli_fetch_array($result2)) {
+		$query2 = $dbconn->prepare("SELECT * FROM phyla");
+		$query2->execute();
+		while ($phylum = $query2->fetch(PDO::FETCH_ASSOC)) {
+			if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+				$species_counts = getClassSpeciesCounts($phylum['id'], $y, null);
+				$sum = 0;
+				foreach ($species_counts as $count) {
+					$sum += $count;
+				}
+
+				echo(','.$sum);
+			}
+
+		}
+		echo('<br>');
+	}	
+	echo('<br>');
+
+	echo('diversity by phylum for year '.$year.'<br>');
+	echo('phylum,diversity,classes,genera,species<br>');
+
+	$query = $dbconn->prepare("SELECT * FROM phyla");
+	$query->execute();
+
+	while ($phylum = $query->fetch(PDO::FETCH_ASSOC)) {
+		if ($phylum['id'] != 17 && $phylum['id'] != 18) {
+			$species_counts = getClassSpeciesCounts($phylum['id'], $year, null);
+			$diversity = getDiversity($year, null,  $phylum['id']);
+			echo($phylum['name']);
+			echo(','.number_format($diversity['diversity'], 2, '.', ''));
+			echo(','.$species_counts['classes']);
+			echo(','.$species_counts['genera']);
+			echo(','.$species_counts['species']);
+			echo('<br>');
+		}
+
+	}
+	echo('<br>');
+	
+
+?>

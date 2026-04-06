@@ -1,0 +1,243 @@
+<?php
+	include("../millport.inc");
+	 
+	connectToDatabase("millport");
+
+	$id = GetInt('id');
+	$lab = GetInt('lab');
+	$year = GetInt('year');
+	$species = null;
+	$phylum = null;
+	$title = null;
+	
+	if ($id > 0) {
+//		$result = mysqli_query($dbconn,"SELECT * FROM Species WHERE id=\"$id\"");
+//		$species = mysqli_fetch_array($result);
+		
+		$query = $dbconn->prepare("SELECT * FROM species WHERE id=:i");
+		$query->bindParam(':i', $id, PDO::PARAM_INT);
+		$query->execute();
+		$species = $query->fetch(PDO::FETCH_ASSOC);
+
+		if ($species) {
+			$title = getBinomial($species);
+
+			//$result2 = mysqli_query($dbconn,"SELECT * FROM phyla WHERE id=\"".$species["phylum_id"]."\"");
+			//$phylum = mysqli_fetch_array($result2);
+			
+			$query = $dbconn->prepare("SELECT * FROM phyla WHERE id=:i");
+			$query->bindParam(':i', $species["phylum_id"], PDO::PARAM_INT);
+			$query->execute();
+			$phylum = $query->fetch(PDO::FETCH_ASSOC);
+		}
+	}
+	
+	if (!$title) {
+		$title = "Field Zoology ".$current_year;
+	}
+
+	startPage();
+	writeHeader($title, "", "", "");
+	startBody();
+
+	writeTitle($title, 'Field Course Species List', '');
+	
+	if (!$species) {
+		echo('	
+        <div id="contentContainer">
+          <!-- Start main content wrapper -->
+
+          <div id="content">
+            <!-- Start content -->
+			');
+		echo('<h3>Animals</h3>');
+
+		$filter = "";
+		if ($lab) {
+			$filter = " AND laboratory=\"$lab\" AND year=$year";
+		}
+		
+//		$result = mysqli_query($dbconn,"SELECT * FROM phyla WHERE is_plant=0 ORDER BY name");
+//		if ($phylum = mysqli_fetch_array($result)) {
+		$query1 = $dbconn->prepare("SELECT * FROM phyla WHERE is_plant=0 ORDER BY name");
+		$query1->execute();
+		if ($phylum = $query1->fetch(PDO::FETCH_ASSOC)) {
+			do {
+				//$result2 = mysqli_query($dbconn,"SELECT * FROM species WHERE phylum_id=\"".$phylum["id"]."\" ORDER BY genus,species");
+				//if ($species = mysqli_fetch_array($result2)) {
+				$query2 = $dbconn->prepare("SELECT * FROM species WHERE phylum_id=:pid ORDER BY genus,species");
+				$query2->bindParam(':pid', $phylum["id"], PDO::PARAM_INT);
+				$query2->execute();
+				if ($species = $query2->fetch(PDO::FETCH_ASSOC)) {
+		
+					echo('<table>');
+					echo('<colgroup>');
+					echo('<col span="1" style="width: 80%;">');
+					echo('<col span="1" style="width: 15%;">');
+					echo('<col span="1" style="width: 5%;">');
+					echo('</colgroup>');
+
+					echo('<tr><th>Phylum <a href="http://en.wikipedia.org/wiki/'.$phylum["name"].'" rel="self" target="_blank">'.$phylum["name"].'</a></th>');	
+					echo('<th>Last seen</th>');	
+					echo('<th>Total IDs</th></tr>');	
+					do {
+						echo('<tr><td>');
+						writeSpecies($species);
+						echo('</td><td>');
+						$query3 = $dbconn->prepare("SELECT * FROM identifications WHERE species_id=:sid ORDER BY time DESC");
+						$query3->bindParam(':sid', $species["id"], PDO::PARAM_INT);
+						$query3->execute();
+						$count = 0;
+						if ($ident = $query3->fetch(PDO::FETCH_ASSOC)) {
+							echo($ident["year"]);
+							$count ++;
+							while ($ident = $query3->fetch(PDO::FETCH_ASSOC)) {
+								$count ++;
+							}
+						}
+						echo('</td><td>');
+						echo($count);
+						echo('</td></tr>');
+					} while ($species = $query2->fetch(PDO::FETCH_ASSOC));
+					echo('</table>');
+				}
+			} while ($phylum = $query1->fetch(PDO::FETCH_ASSOC));
+		}
+
+		echo('<h3>Plants/Algae</h3>');
+
+		//$result = mysqli_query($dbconn,"SELECT * FROM phyla WHERE is_plant=1 ORDER BY name ");
+		//if ($phylum = mysqli_fetch_array($result)) {
+		$query1 = $dbconn->prepare("SELECT * FROM phyla WHERE is_plant=1 ORDER BY name");
+		$query1->execute();
+		if ($phylum = $query1->fetch(PDO::FETCH_ASSOC)) {
+			do {
+				//$result2 = mysqli_query($dbconn,"SELECT * FROM species WHERE phylum_id=\"".$phylum["id"]."\" ORDER BY genus,species");
+				//if ($species = mysqli_fetch_array($result2)) {
+				$query2 = $dbconn->prepare("SELECT * FROM species WHERE phylum_id=:pid ORDER BY genus,species");
+				$query2->bindParam(':pid', $phylum["id"], PDO::PARAM_INT);
+				$query2->execute();
+				if ($species = $query2->fetch(PDO::FETCH_ASSOC)) {
+		
+					echo('<table>');
+					echo('<colgroup>');
+					echo('<col span="1" style="width: 80%;">');
+					echo('<col span="1" style="width: 15%;">');
+					echo('<col span="1" style="width: 5%;">');
+					echo('</colgroup>');
+
+					echo('<tr><th>Phylum <a href="http://en.wikipedia.org/wiki/'.$phylum["name"].'" rel="self" target="_blank">'.$phylum["name"].'</a></th>');	
+					echo('<th>Last seen</th>');	
+					echo('<th>Total IDs</th></tr>');	
+					do {
+						echo('<tr><td>');
+						writeSpecies($species);
+						echo('</td><td>');
+						$query3 = $dbconn->prepare("SELECT * FROM identifications WHERE species_id=:sid ORDER BY time DESC");
+						$query3->bindParam(':sid', $species["id"], PDO::PARAM_INT);
+						$query3->execute();
+						$count = 0;
+						if ($ident = $query3->fetch(PDO::FETCH_ASSOC)) {
+							echo($ident["year"]);
+							$count ++;
+							while ($ident = $query3->fetch(PDO::FETCH_ASSOC)) {
+								$count ++;
+							}
+						}
+						echo('</td><td>');
+						echo($count);
+						echo('</td></tr>');
+					} while ($species = $query2->fetch(PDO::FETCH_ASSOC));
+
+					echo('</table>');
+				}
+			} while ($phylum = $query1->fetch(PDO::FETCH_ASSOC));
+		}
+
+		echo('
+          </div><!-- End content -->
+        </div><!-- End main content wrapper -->
+        	');
+
+		writeFooter(Array("species"));
+	} else {
+	
+		echo('	
+        <div id="contentContainer">
+          <!-- Start main content wrapper -->
+
+          <div id="content">
+            <!-- Start content -->
+			');
+
+		echo('	
+            <h3><i>'.getBinomial($species).'</i></h3>
+            ');
+		echo('
+		  <div class="box-body">
+			  Species: <a href="http://en.wikipedia.org/wiki/'.getBinomial($species).'" rel="self" target="_blank"><i>'.getBinomial($species).'</a></i><br>
+			  Common name: '.$species["name"].'<br>
+			  Phylum: <a href="http://en.wikipedia.org/wiki/'.$phylum["name"].'" rel="self" target="_blank">'.$phylum["name"].'</a><br>
+			  Class: '.$species["class"].'<br>
+
+		 </div>');
+		 
+		 echo('	
+            <h3>Identifications</h3>
+    	');
+
+		for ($year = $current_year; $year >= $earliest_year; $year -= 1) {
+			if ($year != $current_year) {
+				echo('<h4>'.$year.'</h4>');
+			}
+			//$result = mysqli_query($dbconn,"SELECT * FROM Identifications WHERE species_id=\"$id\" AND year=$year ORDER BY time DESC");
+			//if ($ident = mysqli_fetch_array($result)) {
+			$query = $dbconn->prepare("SELECT * FROM identifications WHERE species_id=:sid AND year=:y ORDER BY time DESC");
+			$query->bindParam(':sid', $id, PDO::PARAM_INT);
+			$query->bindParam(':y', $year, PDO::PARAM_INT);
+			$query->execute();
+			if ($ident = $query->fetch(PDO::FETCH_ASSOC)) {
+         		echo('<ol>');
+				do {
+					echo('<li>');
+					echo($ident["time"].' in laboratory '.$ident["laboratory"].'<br>');
+					if ($ident["identified_by"] != null) {
+						echo(' identified by '.$ident["identified_by"]);
+						if ($ident["corroborated_by"] != null) {
+							echo(' (corroborated by '.$ident["corroborated_by"].')');
+						}
+						echo('<br>');
+					}
+					if ($ident["site"] != null) {
+						//$result2 = mysqli_query($dbconn,"SELECT * FROM sites WHERE id=".$ident["site"]);
+						//$site = mysqli_fetch_array($result2);
+
+						$query2 = $dbconn->prepare("SELECT * FROM sites WHERE id=:s");
+						$query2->bindParam(':s', $ident["site"], PDO::PARAM_INT);
+						$query2->execute();
+						$site = $query2->fetch(PDO::FETCH_ASSOC);
+
+						echo(' site: '.$site["name"]);
+						echo('<br>');
+					}
+					echo('</li>');											
+				} while ($ident = $query->fetch(PDO::FETCH_ASSOC));		
+				
+				echo('</ol>');
+			} else {
+				echo('No identifications');
+			}
+		}
+
+		
+		echo('
+			</ol>
+          </div><!-- End content -->
+       </div><!-- End main content wrapper -->
+        	');
+		writeFooter(Array("species", getBinomial($species)));
+	}
+
+	finishPage();
+	
+?>

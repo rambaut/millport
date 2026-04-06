@@ -1,0 +1,104 @@
+<?php
+	include("../millport.inc");
+	 
+	$view = Get('view', "");
+
+	function writeIdent($ident) {
+		$class = ($species["class"] ? " (class ".$species["class"].")" : "");
+		$name = ($species["name"] ? " - ".$species["name"] : "");
+		printf("<p><i>%s</i> %s %s</p>\n", 
+					getBinomial($species), 
+					$class, 
+					$name
+					);
+
+	}
+
+	connectToDatabase("millport");
+
+	$id = GetInt('id');
+	$ident = null;
+	$species = null;
+	$phylum = null;
+	$title = null;
+	
+	$style = GetStr('style');
+	
+	$year = GetStr('year');
+	if (!$year) {
+		$year = $current_year;
+	}
+	$year = intval($year);
+	
+	if (!$title) {
+		$title = "Field Zoology ".$current_year;
+	}
+
+	startPage();
+	writeHeader($title, null, null,  null, 
+		"<meta name=\"viewport\" content=\"width=320, initial-scale=1.0, user-scalable=yes\" />".
+		"<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\" />".
+		"<meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />"
+		);
+
+	
+	startBody();
+	if ($style != "display") {
+    	echo('<h1>'.$title.'</h1>');
+	    echo('<h2>University of Edinburgh Field Zoology 3 field trip</h2>');
+	    echo('<h2>Biodiversity exercise</h2>');
+	}
+
+	echo('	
+	<div id="contentContainer">
+	  <!-- Start main content wrapper -->
+
+	  <div id="content">
+		<!-- Start content -->
+		');
+		
+	echo('<table id="ids"><tr>');
+	echo('<th id="year'.$year.'"><div class="title">Contents '.$year.'</div></th>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="ids.html?style=results">Indentifications and Biodiversity</a></div>');
+	echo('</td>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="ids.html?view=phyla">Diversity by Phylum</a></div>');
+	echo('</td>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="ids.html?view=years">Biodiversity by Year</a></div>');
+	echo('</td>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="ids.html?view=sites">Biodiversity by Site</a></div>');
+	echo('</td>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="ids.html?style=display">Indentifications and Biodiversity Display Board</a></div>');
+	echo('</td>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="species.html">Species list</a></div>');
+	echo('</td>');
+	echo('</tr><tr>');
+	echo('<td id="year'.$year.'">');
+	echo('<div class="subtitle"><a href="add.html?year='.$current_year.'">Add identifications and species</a></div>');
+	echo('</td>');
+	echo('</tr>');
+	echo('</table><br>');
+
+	echo('
+	  </div><!-- End content -->
+	</div><!-- End main content wrapper -->
+		');
+
+	if ($style != "display") {
+		writeFooter();
+	}
+	
+	finishPage();
+	
+?>
