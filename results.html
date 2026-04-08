@@ -76,6 +76,14 @@
     <a href="dashboard.html" class="btn btn-sm btn-outline-light">
         <i class="bi bi-speedometer2 me-1"></i>Live Dashboard
     </a>
+    <!-- Diversity space switch -->
+    <div class="d-flex align-items-center gap-2">
+        <span class="text-white-50" style="font-size:0.78rem;">Diversity</span>
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="diversity-switch" title="Toggle between Shannon H&prime; (nats) and effective number of taxa (N&sub1; = e&sup;H)">
+        </div>
+        <span id="diversity-switch-label" class="text-white-50" style="font-size:0.78rem;">H&prime;</span>
+    </div>
 </header>
 
 <div class="container-fluid px-3 pb-5" id="main-content" style="display:none">
@@ -173,7 +181,7 @@
                         <th class="text-end">Species</th>
                         <th class="text-end">IDs</th>
                         <th class="text-end">Phyla</th>
-                        <th class="text-end">H′</th>
+                        <th class="text-end" id="h-col-header">H′</th>
                     </tr></thead>
                     <tbody id="annual-table-body"></tbody>
                 </table>
@@ -194,7 +202,7 @@
         </div>
         <div class="col-12">
             <div class="panel">
-                <p class="panel-title">Diversity H′ vs Identifications</p>
+                <p class="panel-title" id="scatter-h-ids-title">Diversity H′ vs Identifications</p>
                 <div class="panel-body"><canvas id="scatter-h-ids"></canvas></div>
             </div>
         </div>
@@ -206,13 +214,13 @@
         </div>
         <div class="col-12">
             <div class="panel">
-                <p class="panel-title">Diversity H′ vs Class size</p>
+                <p class="panel-title" id="scatter-h-class-title">Diversity H′ vs Class size</p>
                 <div class="panel-body"><canvas id="scatter-h-class"></canvas></div>
             </div>
         </div>
         <div class="col-12">
             <div class="panel">
-                <p class="panel-title">Diversity H′ vs Tide height above chart datum</p>
+                <p class="panel-title" id="scatter-h-tide-title">Diversity H′ vs Tide height above chart datum</p>
                 <div class="panel-body"><canvas id="scatter-h-tide"></canvas></div>
             </div>
         </div>
@@ -230,6 +238,31 @@
 </div><!-- /container -->
 
 <script>
+// ═══════════════════════════════════════════════════════════════════════
+// Diversity display switch (persisted in localStorage)
+//   true  → Shannon H′ in nats
+//   false → Effective number of phyla N₁ = e^H  (Hill number)
+// ═══════════════════════════════════════════════════════════════════════
+const LS_KEY = 'millport_log_diversity';
+function logDiversity() { return localStorage.getItem(LS_KEY) !== 'false'; }
+
+// Convert a shannon_h value (nats) for display
+function hVal(v) { return (v == null) ? null : logDiversity() ? +v : Math.exp(+v); }
+// Axis / column label
+function hLabel() { return logDiversity() ? "Shannon H\u2032 (nats)" : "Effective phyla N\u2081 (e\u1d34)"; }
+
+// Initialise switch state from localStorage
+document.addEventListener('DOMContentLoaded', () => {
+    const sw = document.getElementById('diversity-switch');
+    const lbl = document.getElementById('diversity-switch-label');
+    sw.checked = logDiversity();
+    lbl.textContent = logDiversity() ? 'H\u2032 (nats)' : 'N\u2081';
+    sw.addEventListener('change', () => {
+        localStorage.setItem(LS_KEY, sw.checked ? 'true' : 'false');
+        location.reload();
+    });
+});
+
 // ═══════════════════════════════════════════════════════════════════════
 // Palette — shared with dashboard.html
 // ═══════════════════════════════════════════════════════════════════════
@@ -306,7 +339,7 @@ function buildSummary(d) {
         { v: s.total_idents,  l: 'Identification records' },
         { v: s.total_phyla,   l: 'Phyla' },
         { v: s.total_classes, l: 'Classes' },
-        { v: fmt(s.shannon_h, 3), l: "Shannon H′" },
+        { v: fmt(hVal(s.shannon_h), 3), l: hLabel() },
     ];
     document.getElementById('summary-cards').innerHTML = cards.map(c => `
         <div class="col-6 col-sm-4 col-md-2">
@@ -480,8 +513,8 @@ function buildRichnessPerYear(d) {
                 },
                 {
                     type: 'line',
-                    label: "Shannon H′",
-                    data: ys.map(r => r.shannon_h),
+                    label: hLabel(),
+                    data: ys.map(r => hVal(r.shannon_h)),
                     borderColor: '#d62728',
                     backgroundColor: 'transparent',
                     pointBackgroundColor: '#d62728',
@@ -504,7 +537,7 @@ function buildRichnessPerYear(d) {
                 },
                 y2: {
                     beginAtZero: true,
-                    title: { display: true, text: "Shannon H′ (nats)" },
+                    title: { display: true, text: hLabel() },
                     position: 'right',
                     grid: { drawOnChartArea: false },
                 }
@@ -544,7 +577,7 @@ function siteDiversityLineChart(canvasId, allYears, siteData) {
         label: site,
         data: allYears.map(y => {
             const r = siteData.find(d => d.year == y && d.site === site);
-            return r ? r.shannon_h : null;
+            return r ? hVal(r.shannon_h) : null;
         }),
         backgroundColor: SITE_COLOURS[site],
     }));
@@ -556,7 +589,7 @@ function siteDiversityLineChart(canvasId, allYears, siteData) {
             plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
             scales: {
                 x: { title: { display: true, text: 'Year' } },
-                y: { beginAtZero: true, title: { display: true, text: "Shannon H\u2032" } },
+                y: { beginAtZero: true, title: { display: true, text: hLabel() } },
             }
         }
     });
@@ -615,8 +648,8 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
             backgroundColor: colour, yAxisID: 'y', order: 2,
         });
         combDatasets.push({
-            type: 'line', label: "Shannon H\u2032",
-            data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.shannon_h : null; }),
+            type: 'line', label: hLabel(),
+            data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? hVal(r.shannon_h) : null; }),
             borderColor: '#d62728', backgroundColor: 'transparent',
             pointBackgroundColor: '#d62728',
             borderWidth: 2, tension: 0.3, yAxisID: 'y2', order: 1, spanGaps: true,
@@ -629,7 +662,7 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
                 scales: {
                     x: { title: { display: true, text: 'Year' } },
                     y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
-                    y2: { beginAtZero: true, title: { display: true, text: "H\u2032" }, position: 'right', grid: { drawOnChartArea: false } },
+                    y2: { beginAtZero: true, title: { display: true, text: hLabel() }, position: 'right', grid: { drawOnChartArea: false } },
                 }
             }
         });
@@ -652,8 +685,8 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
             yAxisID: 'y', order: 2,
         });
         totalsDatasets.push({
-            type: 'line', label: "Shannon H\u2032",
-            data: siteNames.map(s => { const r = siteTotals.find(t => t.site === s); return r ? r.shannon_h : null; }),
+            type: 'line', label: hLabel(),
+            data: siteNames.map(s => { const r = siteTotals.find(t => t.site === s); return r ? hVal(r.shannon_h) : null; }),
             borderColor: '#d62728', backgroundColor: 'transparent',
             pointBackgroundColor: '#d62728',
             borderWidth: 2, tension: 0.3, yAxisID: 'y2', order: 1,
@@ -666,7 +699,7 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
                 scales: {
                     x: { title: { display: true, text: 'Site' } },
                     y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
-                    y2: { beginAtZero: true, title: { display: true, text: "H\u2032" }, position: 'right', grid: { drawOnChartArea: false } },
+                    y2: { beginAtZero: true, title: { display: true, text: hLabel() }, position: 'right', grid: { drawOnChartArea: false } },
                 }
             }
         });
@@ -688,7 +721,7 @@ function buildAnnualTable(d) {
             <td class="text-end">${fmt(r.total_species)}</td>
             <td class="text-end">${fmt(r.total_idents)}</td>
             <td class="text-end">${fmt(r.total_phyla)}</td>
-            <td class="text-end">${fmt(r.shannon_h, 3)}</td>
+            <td class="text-end">${fmt(hVal(r.shannon_h), 3)}</td>
         </tr>
     `).join('');
 }
@@ -760,11 +793,24 @@ function scatterPlot(canvasId, ys, xKey, yKey, xLabel, yLabel, currentYear) {
 function buildScatters(d) {
     const ys = d.year_stats;
     const cy = d.current_year;
-    scatterPlot('scatter-spp-ids',   ys, 'total_idents', 'total_species', 'Number of identifications', 'Number of species',  cy);
-    scatterPlot('scatter-h-ids',     ys, 'total_idents', 'shannon_h',     'Number of identifications', "Shannon H′",         cy);
-    scatterPlot('scatter-spp-class', ys, 'class_size',   'total_species', 'Class size',                'Number of species',  cy);
-    scatterPlot('scatter-h-class',   ys, 'class_size',   'shannon_h',     'Class size',                "Shannon H′",         cy);
-    scatterPlot('scatter-h-tide',    ys, 'tide_height',  'shannon_h',     'Tide height above chart datum (m)', "Shannon H′", cy);
+    // Pre-convert shannon_h values for scatter plots
+    const ysH = ys.map(r => ({ ...r, shannon_h: hVal(r.shannon_h) }));
+    // Update panel titles and table header with correct diversity label
+    const dl = hLabel();
+    document.getElementById('scatter-h-ids-title').textContent   = `${dl} vs Identifications`;
+    document.getElementById('scatter-h-class-title').textContent = `${dl} vs Class size`;
+    document.getElementById('scatter-h-tide-title').textContent  = `${dl} vs Tide height above chart datum`;
+    document.getElementById('h-col-header').textContent          = LOG_DIVERSITY ? 'H\u2032' : 'N\u2081';
+    // Update panel titles with correct label
+    document.getElementById('scatter-h-ids-title').textContent   = `${hLabel()} vs Identifications`;
+    document.getElementById('scatter-h-class-title').textContent = `${hLabel()} vs Class size`;
+    document.getElementById('scatter-h-tide-title').textContent  = `${hLabel()} vs Tide height above chart datum`;
+    document.getElementById('h-col-header').textContent = hLabel().split(' ')[1];
+    scatterPlot('scatter-spp-ids',   ys,  'total_idents', 'total_species', 'Number of identifications', 'Number of species',  cy);
+    scatterPlot('scatter-h-ids',     ysH, 'total_idents', 'shannon_h',     'Number of identifications', hLabel(),             cy);
+    scatterPlot('scatter-spp-class', ys,  'class_size',   'total_species', 'Class size',                'Number of species',  cy);
+    scatterPlot('scatter-h-class',   ysH, 'class_size',   'shannon_h',     'Class size',                hLabel(),             cy);
+    scatterPlot('scatter-h-tide',    ysH, 'tide_height',  'shannon_h',     'Tide height above chart datum (m)', hLabel(),     cy);
 }
 
 // ═══════════════════════════════════════════════════════════════════════

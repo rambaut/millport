@@ -175,6 +175,14 @@
         <!-- Live indicator -->
         <span id="live-dot" title="Polling for new identifications"></span>
         <span id="live-label" class="text-white-50" style="font-size:0.75rem;">live</span>
+        <!-- Diversity space switch -->
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-white-50" style="font-size:0.78rem;">Diversity</span>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="diversity-switch" title="Toggle between Shannon H&prime; (nats) and effective number of taxa (N&sub1; = e&sup;H)">
+            </div>
+            <span id="diversity-switch-label" class="text-white-50" style="font-size:0.78rem;">H&prime;</span>
+        </div>
     </div>
 </header>
 
@@ -221,7 +229,7 @@
                         <div class="col-12">
                             <div class="diversity-badge">
                                 <span class="dval" id="shannon-h">—</span>
-                                <span class="dsub">H′ (nats)</span>
+                                <span class="dsub" id="shannon-dsub">H′ (nats)</span>
                             </div>
                             <div class="text-muted" style="font-size:0.7rem;">Shannon entropy</div>
                         </div>
@@ -303,6 +311,14 @@
 </div><!-- /container -->
 
 <script>
+// ═══════════════════════════════════════════════════════════════════════
+// Diversity display switch (shared localStorage key with results.html)
+// ═══════════════════════════════════════════════════════════════════════
+const LS_KEY = 'millport_log_diversity';
+function logDiversity() { return localStorage.getItem(LS_KEY) !== 'false'; }
+function hVal(v) { return (v == null) ? null : logDiversity() ? +v : Math.exp(+v); }
+function hLabel() { return logDiversity() ? 'H\u2032 (nats)' : 'N\u2081'; }
+
 // ═══════════════════════════════════════════════════════════════════════
 // Config
 // ═══════════════════════════════════════════════════════════════════════
@@ -409,7 +425,8 @@ async function loadDiversity() {
     // Shannon H′ — computed over species-per-phylum
     const counts = data.by_phylum.map(r => r.species_count);
     const H = shannon(counts);
-    document.getElementById('shannon-h').textContent = H.toFixed(3);
+    document.getElementById('shannon-h').textContent = hVal(H).toFixed(3);
+    document.getElementById('shannon-dsub').textContent = hLabel();
 
     // Pie chart
     renderPhylumChart(data.by_phylum);
@@ -639,6 +656,22 @@ function startPolling() {
 
 // On page load
 window.addEventListener('DOMContentLoaded', async () => {
+    // Diversity switch
+    const sw  = document.getElementById('diversity-switch');
+    const lbl = document.getElementById('diversity-switch-label');
+    sw.checked    = logDiversity();
+    lbl.textContent = logDiversity() ? 'H\u2032 (nats)' : 'N\u2081';
+    sw.addEventListener('change', () => {
+        localStorage.setItem(LS_KEY, sw.checked ? 'true' : 'false');
+        lbl.textContent = logDiversity() ? 'H\u2032 (nats)' : 'N\u2081';
+        // Re-render the diversity badge immediately if data is available
+        if (diversityData) {
+            const counts = diversityData.by_phylum.map(r => r.species_count);
+            const H = shannon(counts);
+            document.getElementById('shannon-h').textContent = hVal(H).toFixed(3);
+            document.getElementById('shannon-dsub').textContent = hLabel();
+        }
+    });
     try {
         await loadAll();
         startPolling();
