@@ -443,7 +443,10 @@ function buildStacked(d) {
         options: {
             responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 6 } },
+                legend: {
+                    position: 'right',
+                    labels: { font: { size: 10 }, boxWidth: 10, padding: 8 },
+                },
                 tooltip: {
                     callbacks: {
                         label: ctx => ` ${ctx.dataset.label}: ${(ctx.parsed.y * 100).toFixed(1)}%`,
@@ -595,7 +598,7 @@ function siteDiversityLineChart(canvasId, allYears, siteData) {
     });
 }
 
-function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, showClasses) {
+function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, showClasses, showSiteTotals = true) {
     const container = document.getElementById(containerId);
 
     // All years in reverse order
@@ -668,6 +671,7 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
         });
 
         // Per-site totals (all years combined)
+        if (showSiteTotals) {
         const siteNames = SITE_NAMES;
         const totalsDatasets = [];
         if (showClasses) {
@@ -685,11 +689,10 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
             yAxisID: 'y', order: 2,
         });
         totalsDatasets.push({
-            type: 'line', label: hLabel(),
+            type: 'bar', label: hLabel(),
             data: siteNames.map(s => { const r = siteTotals.find(t => t.site === s); return r ? hVal(r.shannon_h) : null; }),
-            borderColor: '#d62728', backgroundColor: 'transparent',
-            pointBackgroundColor: '#d62728',
-            borderWidth: 2, tension: 0.3, yAxisID: 'y2', order: 1,
+            backgroundColor: siteNames.map(s => (SITE_COLOURS[s] || '#999') + 'aa'),
+            yAxisID: 'y2', order: 2,
         });
         new Chart(document.getElementById(`${containerId}-site-totals`), {
             data: { labels: siteNames, datasets: totalsDatasets },
@@ -698,11 +701,12 @@ function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, sho
                 plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
                 scales: {
                     x: { title: { display: true, text: 'Site' } },
-                    y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
+                    y:  { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
                     y2: { beginAtZero: true, title: { display: true, text: hLabel() }, position: 'right', grid: { drawOnChartArea: false } },
                 }
             }
         });
+        } // end showSiteTotals
     });
 }
 
@@ -876,7 +880,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         buildStacked(d);
         buildRichnessPerYear(d);
         buildSiteDiversity('site-diversity-panels',  d.site_diversity,       d.site_diversity_combined, d.site_totals,       true);
-        buildSiteDiversity('algae-diversity-panels',  d.algae_site_diversity, d.algae_combined,          d.algae_site_totals, false);
+        buildSiteDiversity('algae-diversity-panels',  d.algae_site_diversity, d.algae_combined,          d.algae_site_totals, false, false);
         buildAnnualTable(d);
         buildScatters(d);
         buildCollectors(d);
