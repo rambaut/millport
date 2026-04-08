@@ -145,6 +145,19 @@
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════ §3b Species and class richness per phylum per site -->
+    <h2 class="section-title">
+        <i class="bi bi-bar-chart-steps me-1"></i>Phylum breakdown by site (all years)
+    </h2>
+    <div class="panel">
+        <p class="panel-title" id="phylum-site-spp-title">Top 10 phyla by species count — per site</p>
+        <div class="panel-body"><canvas id="phylum-site-spp"></canvas></div>
+    </div>
+    <div class="panel">
+        <p class="panel-title" id="phylum-site-cls-title">Top 10 phyla by class richness — per site</p>
+        <div class="panel-body"><canvas id="phylum-site-cls"></canvas></div>
+    </div>
+
     <!-- ══════════════════════════════════════ §4 Site diversity — non-algae -->
     <h2 class="section-title">
         <i class="bi bi-geo-alt me-1"></i>Class-level diversity by site (non-algae phyla)
@@ -504,6 +517,54 @@ function buildStacked(d) {
             }
         }
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §3b  Phylum breakdown by site — species count + class richness
+// ═══════════════════════════════════════════════════════════════════════
+function buildPhylumBySite(d) {
+    // Build lookup: phylum → site → { total_species, total_classes }
+    const lookup = {};
+    d.phylum_by_site.forEach(r => {
+        if (!lookup[r.phylum]) lookup[r.phylum] = {};
+        lookup[r.phylum][r.site] = { total_species: +r.total_species, total_classes: +r.total_classes };
+    });
+
+    // Rank phyla by combined species count (all sites) — top 10
+    const totBySpecies = Object.entries(lookup)
+        .map(([p, sites]) => ({ phylum: p, total: Object.values(sites).reduce((s, v) => s + v.total_species, 0) }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+    // Rank phyla by combined class richness (all sites) — top 10
+    const totByClasses = Object.entries(lookup)
+        .map(([p, sites]) => ({ phylum: p, total: Object.values(sites).reduce((s, v) => s + v.total_classes, 0) }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+    function makeChart(canvasId, ranked, dataKey) {
+        const labels = ranked.map(r => r.phylum);
+        const datasets = SITE_NAMES.map(site => ({
+            label: site,
+            data: ranked.map(r => lookup[r.phylum]?.[site]?.[dataKey] ?? 0),
+            backgroundColor: SITE_COLOURS[site],
+        }));
+        new Chart(document.getElementById(canvasId), {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+                plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+                scales: {
+                    x: { title: { display: true, text: 'Phylum' } },
+                    y: { beginAtZero: true, title: { display: true, text: dataKey === 'total_species' ? 'Species' : 'Classes' } },
+                }
+            }
+        });
+    }
+
+    makeChart('phylum-site-spp', totBySpecies, 'total_species');
+    makeChart('phylum-site-cls', totByClasses, 'total_classes');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -906,6 +967,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         buildSummary(d);
         buildStacked(d);
         buildRichnessPerYear(d);
+        buildPhylumBySite(d);
         buildSiteDiversity('site-diversity-panels',  d.site_diversity,       d.site_diversity_combined, d.site_totals,       true);
         buildSiteDiversity('algae-diversity-panels',  d.algae_site_diversity, d.algae_combined,          d.algae_site_totals, false, false);
         buildAnnualTable(d);

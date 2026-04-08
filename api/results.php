@@ -380,6 +380,24 @@ try {
     unset($st);
 
     // ── Output ──────────────────────────────────────────────────────────
+
+    // ── 10. Species and class counts per site per phylum (all years) ─────
+    $stmt = $pdo->prepare("
+        SELECT si.name AS site, p.name AS phylum,
+               COUNT(DISTINCT i.species_id) AS total_species,
+               COUNT(DISTINCT s.class)      AS total_classes
+        FROM identifications i
+        JOIN species s  ON i.species_id = s.id
+        JOIN phyla   p  ON s.phylum_id  = p.id
+        JOIN sites   si ON i.site       = si.id
+        WHERE si.name IN ($named_sites_placeholders)
+          AND i.year >= ? AND i.year <= ?
+        GROUP BY si.name, p.id, p.name
+        ORDER BY si.name ASC, total_species DESC
+    ");
+    $stmt->execute(array_merge(NAMED_SITES, [MIN_YEAR, MAX_YEAR]));
+    $phylum_by_site_raw = $stmt->fetchAll();
+
     echo json_encode([
         'current_year'          => $current_year,
         'current_summary'       => $current_summary,
@@ -393,6 +411,7 @@ try {
         'algae_site_diversity'    => $algae_site_raw,
         'algae_combined'          => $algae_combined,
         'algae_site_totals'       => $algae_site_totals_raw,
+        'phylum_by_site'          => $phylum_by_site_raw,
         'collectors'            => $collectors,
     ], JSON_NUMERIC_CHECK);
 
