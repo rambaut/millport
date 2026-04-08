@@ -186,34 +186,34 @@
         <i class="bi bi-scatter-chart me-1"></i>Relationships
     </h2>
     <div class="row g-3">
-        <div class="col-12 col-lg-6">
+        <div class="col-12">
             <div class="panel">
                 <p class="panel-title">Species vs Identifications</p>
-                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-spp-ids"></canvas></div></div>
+                <div class="panel-body"><canvas id="scatter-spp-ids"></canvas></div>
             </div>
         </div>
-        <div class="col-12 col-lg-6">
+        <div class="col-12">
             <div class="panel">
                 <p class="panel-title">Diversity H′ vs Identifications</p>
-                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-h-ids"></canvas></div></div>
+                <div class="panel-body"><canvas id="scatter-h-ids"></canvas></div>
             </div>
         </div>
-        <div class="col-12 col-lg-6">
+        <div class="col-12">
             <div class="panel">
                 <p class="panel-title">Species vs Class size</p>
-                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-spp-class"></canvas></div></div>
+                <div class="panel-body"><canvas id="scatter-spp-class"></canvas></div>
             </div>
         </div>
-        <div class="col-12 col-lg-6">
+        <div class="col-12">
             <div class="panel">
                 <p class="panel-title">Diversity H′ vs Class size</p>
-                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-h-class"></canvas></div></div>
+                <div class="panel-body"><canvas id="scatter-h-class"></canvas></div>
             </div>
         </div>
-        <div class="col-12 col-lg-6 col-xl-12">
+        <div class="col-12">
             <div class="panel">
                 <p class="panel-title">Diversity H′ vs Tide height above chart datum</p>
-                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-h-tide"></canvas></div></div>
+                <div class="panel-body"><canvas id="scatter-h-tide"></canvas></div>
             </div>
         </div>
     </div>
@@ -514,132 +514,125 @@ function buildRichnessPerYear(d) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// §4 + §5  Site diversity charts (generic, reused for non-algae + algae)
-// Two panels: one grouped chart (3 named sites per year) + one combined
+// §4 + §5  Site diversity charts — 4 separate full-width plots per section
 // ═══════════════════════════════════════════════════════════════════════
+function siteBarChart(canvasId, allYears, siteData, dataKey, yLabel) {
+    const datasets = SITE_NAMES.map(site => ({
+        label: site,
+        data: allYears.map(y => {
+            const r = siteData.find(d => d.year == y && d.site === site);
+            return r ? r[dataKey] : null;
+        }),
+        backgroundColor: SITE_COLOURS[site],
+    }));
+    new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: { labels: allYears.map(String), datasets },
+        options: {
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+            plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+            scales: {
+                x: { title: { display: true, text: 'Year' } },
+                y: { beginAtZero: true, title: { display: true, text: yLabel } },
+            }
+        }
+    });
+}
+
+function siteDiversityLineChart(canvasId, allYears, siteData) {
+    const datasets = SITE_NAMES.map(site => ({
+        label: site,
+        data: allYears.map(y => {
+            const r = siteData.find(d => d.year == y && d.site === site);
+            return r ? r.shannon_h : null;
+        }),
+        borderColor: SITE_COLOURS[site],
+        backgroundColor: 'transparent',
+        pointBackgroundColor: SITE_COLOURS[site],
+        borderWidth: 2, tension: 0.3, spanGaps: true,
+    }));
+    new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: { labels: allYears.map(String), datasets },
+        options: {
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+            plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+            scales: {
+                x: { title: { display: true, text: 'Year' } },
+                y: { beginAtZero: true, title: { display: true, text: "Shannon H\u2032" } },
+            }
+        }
+    });
+}
+
 function buildSiteDiversity(containerId, siteData, combinedData, showClasses) {
     const container = document.getElementById(containerId);
 
-    // Gather all years in reverse order
+    // All years in reverse order
     const allYears = [...new Set([
         ...siteData.map(r => r.year),
         ...combinedData.map(r => r.year),
     ])].sort((a, b) => b - a);
-    const labels = allYears.map(String);
 
-    const row = document.createElement('div');
-    row.className = 'row g-3';
-    container.appendChild(row);
+    const panels = [];
 
-    // ── Panel 1: grouped bars — all 3 named sites per year ──────────────
-    const col1 = document.createElement('div');
-    col1.className = 'col-12';
-    col1.innerHTML = `
+    // ── Species per site per year ────────────────────────────────────────
+    panels.push({ id: `${containerId}-spp`,     title: 'Species count by site — per year' });
+    // ── Classes per site per year (non-algae only) ───────────────────────
+    if (showClasses) {
+        panels.push({ id: `${containerId}-cls`, title: 'Class count by site — per year' });
+    }
+    // ── Diversity H′ per site per year ───────────────────────────────────
+    panels.push({ id: `${containerId}-div`,     title: "Shannon H\u2032 by site — per year" });
+    // ── Combined (all sites) per year ────────────────────────────────────
+    panels.push({ id: `${containerId}-comb`,    title: 'Combined (all named sites) — species, classes and H\u2032 per year' });
+
+    // Build panel HTML all at once
+    container.innerHTML = panels.map(p => `
         <div class="panel">
-            <p class="panel-title">White Bay · Ballochmartin Bay · Farland Point — per year</p>
-            <div class="panel-body">
-                <canvas id="canvas-${containerId}-sites"></canvas>
-            </div>
-        </div>`;
-    row.appendChild(col1);
+            <p class="panel-title">${p.title}</p>
+            <div class="panel-body"><canvas id="${p.id}"></canvas></div>
+        </div>
+    `).join('');
 
     requestAnimationFrame(() => {
-        const datasets = [];
-        SITE_NAMES.forEach(site => {
-            const colour = SITE_COLOURS[site];
-            if (showClasses) {
-                datasets.push({
-                    type: 'bar', label: `${site} — Classes`,
-                    data: allYears.map(y => {
-                        const r = siteData.find(d => d.year == y && d.site === site);
-                        return r ? r.total_classes : null;
-                    }),
-                    backgroundColor: colour + '55',
-                    yAxisID: 'y', order: 2,
-                });
-            }
-            datasets.push({
-                type: 'bar', label: `${site} — Species`,
-                data: allYears.map(y => {
-                    const r = siteData.find(d => d.year == y && d.site === site);
-                    return r ? r.total_species : null;
-                }),
-                backgroundColor: colour,
-                yAxisID: 'y', order: 2,
-            });
-            datasets.push({
-                type: 'line', label: `${site} — H′`,
-                data: allYears.map(y => {
-                    const r = siteData.find(d => d.year == y && d.site === site);
-                    return r ? r.shannon_h : null;
-                }),
-                borderColor: colour, backgroundColor: 'transparent',
-                pointBackgroundColor: colour,
-                borderWidth: 2, tension: 0.3,
-                borderDash: [4, 3],
-                yAxisID: 'y2', order: 1, spanGaps: true,
-            });
-        });
-
-        new Chart(document.getElementById(`canvas-${containerId}-sites`), {
-            data: { labels, datasets },
-            options: {
-                responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
-                plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 6 } } },
-                scales: {
-                    x: { title: { display: true, text: 'Year' } },
-                    y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
-                    y2: { beginAtZero: true, title: { display: true, text: "H′" }, position: 'right', grid: { drawOnChartArea: false } },
-                }
-            }
-        });
-    });
-
-    // ── Panel 2: combined across all sites ──────────────────────────────
-    const col2 = document.createElement('div');
-    col2.className = 'col-12 col-lg-6';
-    col2.innerHTML = `
-        <div class="panel">
-            <p class="panel-title">Combined (all sites)</p>
-            <div class="panel-body">
-                <canvas id="canvas-${containerId}-Combined"></canvas>
-            </div>
-        </div>`;
-    row.appendChild(col2);
-
-    requestAnimationFrame(() => {
-        const colour = SITE_COLOURS['Combined'];
-        const datasets = [];
+        siteBarChart(`${containerId}-spp`, allYears, siteData, 'total_species', 'Species');
         if (showClasses) {
-            datasets.push({
+            siteBarChart(`${containerId}-cls`, allYears, siteData, 'total_classes', 'Classes');
+        }
+        siteDiversityLineChart(`${containerId}-div`, allYears, siteData);
+
+        // Combined chart: bars (species + optional classes) + H′ line
+        const colour = SITE_COLOURS['Combined'];
+        const combDatasets = [];
+        if (showClasses) {
+            combDatasets.push({
                 type: 'bar', label: 'Classes',
                 data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.total_classes : null; }),
-                backgroundColor: colour + '55', yAxisID: 'y', order: 2,
+                backgroundColor: colour + '66', yAxisID: 'y', order: 2,
             });
         }
-        datasets.push({
+        combDatasets.push({
             type: 'bar', label: 'Species',
             data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.total_species : null; }),
             backgroundColor: colour, yAxisID: 'y', order: 2,
         });
-        datasets.push({
-            type: 'line', label: "Shannon H′",
+        combDatasets.push({
+            type: 'line', label: "Shannon H\u2032",
             data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.shannon_h : null; }),
             borderColor: '#d62728', backgroundColor: 'transparent',
             pointBackgroundColor: '#d62728',
-            borderWidth: 2, tension: 0.3,
-            yAxisID: 'y2', order: 1, spanGaps: true,
+            borderWidth: 2, tension: 0.3, yAxisID: 'y2', order: 1, spanGaps: true,
         });
-
-        new Chart(document.getElementById(`canvas-${containerId}-Combined`), {
-            data: { labels, datasets },
+        new Chart(document.getElementById(`${containerId}-comb`), {
+            data: { labels: allYears.map(String), datasets: combDatasets },
             options: {
                 responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
                 plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
                 scales: {
                     x: { title: { display: true, text: 'Year' } },
                     y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
-                    y2: { beginAtZero: true, title: { display: true, text: "H′" }, position: 'right', grid: { drawOnChartArea: false } },
+                    y2: { beginAtZero: true, title: { display: true, text: "H\u2032" }, position: 'right', grid: { drawOnChartArea: false } },
                 }
             }
         });
@@ -692,7 +685,7 @@ function scatterPlot(canvasId, ys, xKey, yKey, xLabel, yLabel, currentYear) {
                     data: points.filter(p => p.year == currentYear),
                     backgroundColor: '#d62728',
                     pointRadius: 8,
-                    pointStyle: 'star',
+                    pointStyle: 'circle',
                 },
                 ...(reg ? [{
                     label: `Regression (R²=${reg.r2.toFixed(2)})`,
@@ -707,7 +700,7 @@ function scatterPlot(canvasId, ys, xKey, yKey, xLabel, yLabel, currentYear) {
             ]
         },
         options: {
-            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+            responsive: true, aspectRatio: 1, maintainAspectRatio: true,
             plugins: {
                 legend: { position: 'top' },
                 tooltip: {
@@ -723,8 +716,8 @@ function scatterPlot(canvasId, ys, xKey, yKey, xLabel, yLabel, currentYear) {
                 }
             },
             scales: {
-                x: { title: { display: true, text: xLabel } },
-                y: { title: { display: true, text: yLabel } },
+                x: { beginAtZero: true, title: { display: true, text: xLabel } },
+                y: { beginAtZero: true, title: { display: true, text: yLabel } },
             }
         }
     });
