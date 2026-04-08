@@ -398,6 +398,33 @@ try {
     $stmt->execute(array_merge(NAMED_SITES, [MIN_YEAR, MAX_YEAR]));
     $phylum_by_site_raw = $stmt->fetchAll();
 
+    // Compute Shannon H′ over classes-within-phylum per site
+    $stmt = $pdo->prepare("
+        SELECT si.name AS site, p.name AS phylum, s.class,
+               COUNT(DISTINCT i.species_id) AS n
+        FROM identifications i
+        JOIN species s  ON i.species_id = s.id
+        JOIN phyla   p  ON s.phylum_id  = p.id
+        JOIN sites   si ON i.site       = si.id
+        WHERE si.name IN ($named_sites_placeholders)
+          AND i.year >= ? AND i.year <= ?
+        GROUP BY si.name, p.id, p.name, s.class
+    ");
+    $stmt->execute(array_merge(NAMED_SITES, [MIN_YEAR, MAX_YEAR]));
+    // Group counts by site+phylum key
+    $class_counts_by_site_phylum = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $key = $row['site'] . '|||' . $row['phylum'];
+        $class_counts_by_site_phylum[$key][] = (int)$row['n'];
+    }
+    // Attach shannon_h to each phylum_by_site row
+    foreach ($phylum_by_site_raw as &$pbsr) {
+        $key = $pbsr['site'] . '|||' . $pbsr['phylum'];
+        $counts = $class_counts_by_site_phylum[$key] ?? [];
+        $pbsr['class_shannon_h'] = shannon_h($counts);
+    }
+    unset($pbsr);
+
     echo json_encode([
         'current_year'          => $current_year,
         'current_summary'       => $current_summary,

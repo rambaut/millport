@@ -154,7 +154,7 @@
         <div class="panel-body"><canvas id="phylum-site-spp"></canvas></div>
     </div>
     <div class="panel">
-        <p class="panel-title" id="phylum-site-cls-title">Top 10 phyla by class richness — per site</p>
+        <p class="panel-title" id="phylum-site-cls-title">Top 10 phyla by class-level diversity — per site</p>
         <div class="panel-body"><canvas id="phylum-site-cls"></canvas></div>
     </div>
 
@@ -520,14 +520,17 @@ function buildStacked(d) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// §3b  Phylum breakdown by site — species count + class richness
+// §3b  Phylum breakdown by site — species count + class diversity
 // ═══════════════════════════════════════════════════════════════════════
 function buildPhylumBySite(d) {
-    // Build lookup: phylum → site → { total_species, total_classes }
+    // Build lookup: phylum → site → { total_species, class_shannon_h }
     const lookup = {};
     d.phylum_by_site.forEach(r => {
         if (!lookup[r.phylum]) lookup[r.phylum] = {};
-        lookup[r.phylum][r.site] = { total_species: +r.total_species, total_classes: +r.total_classes };
+        lookup[r.phylum][r.site] = {
+            total_species:   +r.total_species,
+            class_shannon_h: hVal(+r.class_shannon_h),
+        };
     });
 
     // Rank phyla by combined species count (all sites) — top 10
@@ -536,35 +539,60 @@ function buildPhylumBySite(d) {
         .sort((a, b) => b.total - a.total)
         .slice(0, 10);
 
-    // Rank phyla by combined class richness (all sites) — top 10
-    const totByClasses = Object.entries(lookup)
-        .map(([p, sites]) => ({ phylum: p, total: Object.values(sites).reduce((s, v) => s + v.total_classes, 0) }))
+    // Rank phyla by mean class diversity H′ across sites — top 10
+    const totByDiversity = Object.entries(lookup)
+        .map(([p, sites]) => {
+            const vals = Object.values(sites).map(v => v.class_shannon_h).filter(v => v > 0);
+            return { phylum: p, total: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0 };
+        })
         .sort((a, b) => b.total - a.total)
         .slice(0, 10);
 
-    function makeChart(canvasId, ranked, dataKey) {
-        const labels = ranked.map(r => r.phylum);
-        const datasets = SITE_NAMES.map(site => ({
-            label: site,
-            data: ranked.map(r => lookup[r.phylum]?.[site]?.[dataKey] ?? 0),
-            backgroundColor: SITE_COLOURS[site],
-        }));
-        new Chart(document.getElementById(canvasId), {
-            type: 'bar',
-            data: { labels, datasets },
-            options: {
-                responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
-                plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
-                scales: {
-                    x: { title: { display: true, text: 'Phylum' } },
-                    y: { beginAtZero: true, title: { display: true, text: dataKey === 'total_species' ? 'Species' : 'Classes' } },
-                }
+    // Chart 1: top 10 by species count
+    const sppLabels = totBySpecies.map(r => r.phylum);
+    new Chart(document.getElementById('phylum-site-spp'), {
+        type: 'bar',
+        data: {
+            labels: sppLabels,
+            datasets: SITE_NAMES.map(site => ({
+                label: site,
+                data: sppLabels.map(p => lookup[p]?.[site]?.total_species ?? 0),
+                backgroundColor: SITE_COLOURS[site],
+            })),
+        },
+        options: {
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+            plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+            scales: {
+                x: { title: { display: true, text: 'Phylum' } },
+                y: { beginAtZero: true, title: { display: true, text: 'Species' } },
             }
-        });
-    }
+        }
+    });
 
-    makeChart('phylum-site-spp', totBySpecies, 'total_species');
-    makeChart('phylum-site-cls', totByClasses, 'total_classes');
+    // Chart 2: top 10 by class-level diversity H′
+    const divLabels = totByDiversity.map(r => r.phylum);
+    document.getElementById('phylum-site-cls-title').textContent =
+        `Top 10 phyla by class-level diversity (${hLabel()}) — per site`;
+    new Chart(document.getElementById('phylum-site-cls'), {
+        type: 'bar',
+        data: {
+            labels: divLabels,
+            datasets: SITE_NAMES.map(site => ({
+                label: site,
+                data: divLabels.map(p => lookup[p]?.[site]?.class_shannon_h ?? 0),
+                backgroundColor: SITE_COLOURS[site],
+            })),
+        },
+        options: {
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+            plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+            scales: {
+                x: { title: { display: true, text: 'Phylum' } },
+                y: { beginAtZero: true, title: { display: true, text: hLabel() } },
+            }
+        }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
