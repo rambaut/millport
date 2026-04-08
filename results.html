@@ -546,13 +546,10 @@ function siteDiversityLineChart(canvasId, allYears, siteData) {
             const r = siteData.find(d => d.year == y && d.site === site);
             return r ? r.shannon_h : null;
         }),
-        borderColor: SITE_COLOURS[site],
-        backgroundColor: 'transparent',
-        pointBackgroundColor: SITE_COLOURS[site],
-        borderWidth: 2, tension: 0.3, spanGaps: true,
+        backgroundColor: SITE_COLOURS[site],
     }));
     new Chart(document.getElementById(canvasId), {
-        type: 'line',
+        type: 'bar',
         data: { labels: allYears.map(String), datasets },
         options: {
             responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
@@ -565,7 +562,7 @@ function siteDiversityLineChart(canvasId, allYears, siteData) {
     });
 }
 
-function buildSiteDiversity(containerId, siteData, combinedData, showClasses) {
+function buildSiteDiversity(containerId, siteData, combinedData, siteTotals, showClasses) {
     const container = document.getElementById(containerId);
 
     // All years in reverse order
@@ -585,8 +582,8 @@ function buildSiteDiversity(containerId, siteData, combinedData, showClasses) {
     // ── Diversity H′ per site per year ───────────────────────────────────
     panels.push({ id: `${containerId}-div`,     title: "Shannon H\u2032 by site — per year" });
     // ── Combined (all sites) per year ────────────────────────────────────
-    panels.push({ id: `${containerId}-comb`,    title: 'Combined (all named sites) — species, classes and H\u2032 per year' });
-
+    panels.push({ id: `${containerId}-comb`,    title: 'Combined (all named sites) — species, classes and H\u2032 per year' });    // ── Per-site totals across all years ─────────────────────────────────────
+    panels.push({ id: `${containerId}-site-totals`, title: 'Combined (all years) — species, classes and H\u2032 per site' });
     // Build panel HTML all at once
     container.innerHTML = panels.map(p => `
         <div class="panel">
@@ -631,6 +628,43 @@ function buildSiteDiversity(containerId, siteData, combinedData, showClasses) {
                 plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
                 scales: {
                     x: { title: { display: true, text: 'Year' } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
+                    y2: { beginAtZero: true, title: { display: true, text: "H\u2032" }, position: 'right', grid: { drawOnChartArea: false } },
+                }
+            }
+        });
+
+        // Per-site totals (all years combined)
+        const siteNames = SITE_NAMES;
+        const totalsDatasets = [];
+        if (showClasses) {
+            totalsDatasets.push({
+                type: 'bar', label: 'Classes',
+                data: siteNames.map(s => { const r = siteTotals.find(t => t.site === s); return r ? r.total_classes : null; }),
+                backgroundColor: siteNames.map(s => (SITE_COLOURS[s] || '#999') + '66'),
+                yAxisID: 'y', order: 2,
+            });
+        }
+        totalsDatasets.push({
+            type: 'bar', label: 'Species',
+            data: siteNames.map(s => { const r = siteTotals.find(t => t.site === s); return r ? r.total_species : null; }),
+            backgroundColor: siteNames.map(s => SITE_COLOURS[s] || '#999'),
+            yAxisID: 'y', order: 2,
+        });
+        totalsDatasets.push({
+            type: 'line', label: "Shannon H\u2032",
+            data: siteNames.map(s => { const r = siteTotals.find(t => t.site === s); return r ? r.shannon_h : null; }),
+            borderColor: '#d62728', backgroundColor: 'transparent',
+            pointBackgroundColor: '#d62728',
+            borderWidth: 2, tension: 0.3, yAxisID: 'y2', order: 1,
+        });
+        new Chart(document.getElementById(`${containerId}-site-totals`), {
+            data: { labels: siteNames, datasets: totalsDatasets },
+            options: {
+                responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+                plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+                scales: {
+                    x: { title: { display: true, text: 'Site' } },
                     y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
                     y2: { beginAtZero: true, title: { display: true, text: "H\u2032" }, position: 'right', grid: { drawOnChartArea: false } },
                 }
@@ -795,8 +829,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         buildSummary(d);
         buildStacked(d);
         buildRichnessPerYear(d);
-        buildSiteDiversity('site-diversity-panels',  d.site_diversity,       d.site_diversity_combined, true);
-        buildSiteDiversity('algae-diversity-panels',  d.algae_site_diversity, d.algae_combined,          false);
+        buildSiteDiversity('site-diversity-panels',  d.site_diversity,       d.site_diversity_combined, d.site_totals,       true);
+        buildSiteDiversity('algae-diversity-panels',  d.algae_site_diversity, d.algae_combined,          d.algae_site_totals, false);
         buildAnnualTable(d);
         buildScatters(d);
         buildCollectors(d);

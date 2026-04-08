@@ -307,6 +307,78 @@ try {
         ];
     }
 
+    // ── 8. Per-site totals across all years (non-algae) ─────────────────
+    $stmt = $pdo->prepare("
+        SELECT si.name AS site,
+               COUNT(DISTINCT i.species_id)  AS total_species,
+               COUNT(DISTINCT s.class)       AS total_classes
+        FROM identifications i
+        JOIN species s  ON i.species_id = s.id
+        JOIN phyla   p  ON s.phylum_id  = p.id
+        JOIN sites   si ON i.site       = si.id
+        WHERE si.name IN ($named_sites_placeholders)
+          AND p.name  NOT IN ($algae_placeholders)
+          AND i.year >= ? AND i.year <= ?
+        GROUP BY si.name
+        ORDER BY si.name ASC
+    ");
+    $stmt->execute(array_merge(NAMED_SITES, ALGAE_PHYLA, [MIN_YEAR, MAX_YEAR]));
+    $site_totals_raw = $stmt->fetchAll();
+
+    foreach ($site_totals_raw as &$st) {
+        $stmt2 = $pdo->prepare("
+            SELECT COUNT(DISTINCT i.species_id) AS n
+            FROM identifications i
+            JOIN species s ON i.species_id = s.id
+            JOIN phyla   p ON s.phylum_id  = p.id
+            JOIN sites   si ON i.site      = si.id
+            WHERE si.name = ?
+              AND p.name NOT IN ($algae_placeholders)
+              AND i.year >= ? AND i.year <= ?
+            GROUP BY s.phylum_id
+        ");
+        $stmt2->execute(array_merge([$st['site']], ALGAE_PHYLA, [MIN_YEAR, MAX_YEAR]));
+        $pc = array_column($stmt2->fetchAll(), 'n');
+        $st['shannon_h'] = shannon_h($pc);
+    }
+    unset($st);
+
+    // ── 9. Per-site totals across all years (algae) ───────────────────────
+    $stmt = $pdo->prepare("
+        SELECT si.name AS site,
+               COUNT(DISTINCT i.species_id)  AS total_species,
+               COUNT(DISTINCT s.class)       AS total_classes
+        FROM identifications i
+        JOIN species s  ON i.species_id = s.id
+        JOIN phyla   p  ON s.phylum_id  = p.id
+        JOIN sites   si ON i.site       = si.id
+        WHERE si.name IN ($named_sites_placeholders)
+          AND p.name  IN ($algae_placeholders)
+          AND i.year >= ? AND i.year <= ?
+        GROUP BY si.name
+        ORDER BY si.name ASC
+    ");
+    $stmt->execute(array_merge(NAMED_SITES, ALGAE_PHYLA, [MIN_YEAR, MAX_YEAR]));
+    $algae_site_totals_raw = $stmt->fetchAll();
+
+    foreach ($algae_site_totals_raw as &$st) {
+        $stmt2 = $pdo->prepare("
+            SELECT COUNT(DISTINCT i.species_id) AS n
+            FROM identifications i
+            JOIN species s ON i.species_id = s.id
+            JOIN phyla   p ON s.phylum_id  = p.id
+            JOIN sites   si ON i.site      = si.id
+            WHERE si.name = ?
+              AND p.name IN ($algae_placeholders)
+              AND i.year >= ? AND i.year <= ?
+            GROUP BY s.phylum_id
+        ");
+        $stmt2->execute(array_merge([$st['site']], ALGAE_PHYLA, [MIN_YEAR, MAX_YEAR]));
+        $pc = array_column($stmt2->fetchAll(), 'n');
+        $st['shannon_h'] = shannon_h($pc);
+    }
+    unset($st);
+
     // ── Output ──────────────────────────────────────────────────────────
     echo json_encode([
         'current_year'          => $current_year,
@@ -317,8 +389,10 @@ try {
         'combined_phyla'        => $combined_phyla,
         'site_diversity'        => $site_diversity_raw,
         'site_diversity_combined' => $site_diversity_combined,
-        'algae_site_diversity'  => $algae_site_raw,
-        'algae_combined'        => $algae_combined,
+        'site_totals'             => $site_totals_raw,
+        'algae_site_diversity'    => $algae_site_raw,
+        'algae_combined'          => $algae_combined,
+        'algae_site_totals'       => $algae_site_totals_raw,
         'collectors'            => $collectors,
     ], JSON_NUMERIC_CHECK);
 
