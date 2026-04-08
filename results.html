@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Millport Marine Survey — Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        body { background:#f8f9fa; font-size:0.875rem; }
+
+        .site-header {
+            background: linear-gradient(135deg, #0a3d62 0%, #1e6091 100%);
+            color:#fff; padding:0.75rem 1.5rem;
+        }
+        .site-header h1 { font-size:1.35rem; font-weight:700; margin:0; }
+
+        .section-title {
+            font-size:1rem; font-weight:700; color:#0a3d62;
+            border-left:4px solid #0a3d62; padding-left:0.6rem;
+            margin:2rem 0 0.75rem;
+        }
+
+        .panel {
+            background:#fff; border:1px solid #dee2e6;
+            border-radius:0.5rem; overflow:hidden; margin-bottom:1rem;
+        }
+        .panel-title {
+            font-size:0.78rem; font-weight:600;
+            text-transform:uppercase; letter-spacing:0.06em;
+            color:#6c757d; padding:0.5rem 0.85rem;
+            background:#f1f3f5; border-bottom:1px solid #dee2e6; margin:0;
+        }
+        .panel-body { padding:0.75rem; }
+
+        .stat-card {
+            background:#fff; border-radius:0.5rem;
+            border:1px solid #dee2e6; padding:0.65rem 1rem; text-align:center;
+        }
+        .stat-card .value { font-size:2rem; font-weight:700; color:#0a3d62; line-height:1.1; }
+        .stat-card .label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; }
+
+        .chart-wrap { position:relative; height:300px; }
+        .chart-wrap-tall { position:relative; height:400px; }
+        .chart-wrap-sm   { position:relative; height:220px; }
+
+        table.results-table th {
+            font-size:0.7rem; text-transform:uppercase;
+            letter-spacing:0.05em; color:#6c757d; white-space:nowrap;
+        }
+        .current-year-row { background:#fff3cd !important; font-weight:600; }
+
+        #loading-overlay {
+            position:fixed; inset:0; background:rgba(255,255,255,0.85);
+            display:flex; align-items:center; justify-content:center;
+            z-index:9999; flex-direction:column; gap:1rem;
+        }
+        .spinner-border { width:3rem; height:3rem; }
+    </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <div class="text-muted">Loading data…</div>
+</div>
+
+<!-- Header -->
+<header class="site-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1><i class="bi bi-graph-up me-2"></i>Millport Marine Survey — Results</h1>
+        <div class="text-white-50" style="font-size:0.75rem;">Summary statistics and visualisations from the identification database</div>
+    </div>
+    <a href="dashboard.html" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-speedometer2 me-1"></i>Live Dashboard
+    </a>
+</header>
+
+<div class="container-fluid px-3 pb-5" id="main-content" style="display:none">
+
+    <!-- ══════════════════════════════════════ §1 Current year summary -->
+    <h2 class="section-title mt-3" id="section-summary">
+        <i class="bi bi-clipboard-data me-1"></i>
+        <span id="curr-year-heading">This Year's Summary</span>
+    </h2>
+    <div class="row g-2 mb-2" id="summary-cards"></div>
+
+    <!-- Current year phylum table -->
+    <div class="row g-3">
+        <div class="col-12 col-lg-6">
+            <div class="panel">
+                <p class="panel-title">Phylum breakdown — current year</p>
+                <div class="panel-body p-0">
+                    <table class="table table-sm table-hover mb-0 results-table">
+                        <thead><tr>
+                            <th></th><th>Phylum</th>
+                            <th class="text-end">Species</th>
+                            <th class="text-end">IDs</th>
+                            <th class="text-end">Proportion</th>
+                        </tr></thead>
+                        <tbody id="phylum-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="panel">
+                <p class="panel-title">Species proportion by phylum — current year</p>
+                <div class="panel-body">
+                    <div class="chart-wrap"><canvas id="phylum-pie"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ §2 Stacked phylum per year -->
+    <h2 class="section-title">
+        <i class="bi bi-bar-chart-steps me-1"></i>Species composition by phylum per year
+    </h2>
+    <div class="panel">
+        <p class="panel-title">Proportion of species per phylum 2010–present (+ all years combined)</p>
+        <div class="panel-body">
+            <div class="chart-wrap-tall"><canvas id="stacked-phylum"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ §3 Phyla / classes / species + diversity per year -->
+    <h2 class="section-title">
+        <i class="bi bi-layers me-1"></i>Taxonomic richness and diversity per year
+    </h2>
+    <div class="panel">
+        <p class="panel-title">Number of phyla, classes and species per year — Shannon H′ on right axis</p>
+        <div class="panel-body">
+            <div class="chart-wrap-tall"><canvas id="richness-per-year"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ §4 Site diversity — non-algae -->
+    <h2 class="section-title">
+        <i class="bi bi-geo-alt me-1"></i>Class-level diversity by site (non-algae phyla)
+    </h2>
+    <p class="text-muted mb-2" style="font-size:0.8rem;">
+        Excludes Rhodophyta, Heterokontophyta, Chlorophyta.
+        Sites: White Bay · Ballochmartin Bay · Farland Point.
+    </p>
+    <div id="site-diversity-panels"></div>
+
+    <!-- ══════════════════════════════════════ §5 Site diversity — algae -->
+    <h2 class="section-title">
+        <i class="bi bi-flower1 me-1"></i>Algae diversity by site
+    </h2>
+    <p class="text-muted mb-2" style="font-size:0.8rem;">
+        Rhodophyta, Heterokontophyta, Chlorophyta only.
+    </p>
+    <div id="algae-diversity-panels"></div>
+
+    <!-- ══════════════════════════════════════ §6 Annual summary table -->
+    <h2 class="section-title">
+        <i class="bi bi-table me-1"></i>Annual summary table
+    </h2>
+    <div class="panel">
+        <p class="panel-title">Year-by-year statistics</p>
+        <div class="panel-body p-0">
+            <div style="overflow-x:auto">
+                <table class="table table-sm table-hover mb-0 results-table">
+                    <thead><tr>
+                        <th>Year</th>
+                        <th class="text-end">Class size</th>
+                        <th class="text-end">Tide height</th>
+                        <th>Weather</th>
+                        <th class="text-end">Species</th>
+                        <th class="text-end">IDs</th>
+                        <th class="text-end">Phyla</th>
+                        <th class="text-end">H′</th>
+                        <th class="text-end">J′</th>
+                    </tr></thead>
+                    <tbody id="annual-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ §7 Regressions -->
+    <h2 class="section-title">
+        <i class="bi bi-scatter-chart me-1"></i>Relationships
+    </h2>
+    <div class="row g-3">
+        <div class="col-12 col-lg-6">
+            <div class="panel">
+                <p class="panel-title">Species vs Identifications</p>
+                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-spp-ids"></canvas></div></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="panel">
+                <p class="panel-title">Diversity H′ vs Identifications</p>
+                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-h-ids"></canvas></div></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="panel">
+                <p class="panel-title">Species vs Class size</p>
+                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-spp-class"></canvas></div></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="panel">
+                <p class="panel-title">Diversity H′ vs Class size</p>
+                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-h-class"></canvas></div></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6 col-xl-12">
+            <div class="panel">
+                <p class="panel-title">Diversity H′ vs Tide height above chart datum</p>
+                <div class="panel-body"><div class="chart-wrap"><canvas id="scatter-h-tide"></canvas></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ §8 Collectors curve -->
+    <h2 class="section-title">
+        <i class="bi bi-arrow-up-right me-1"></i>Collectors curve — current year
+    </h2>
+    <div class="panel">
+        <p class="panel-title">Cumulative species and classes against number of identifications (ordered by time)</p>
+        <div class="panel-body"><div class="chart-wrap-tall"><canvas id="collectors-curve"></canvas></div></div>
+    </div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Palette — shared with dashboard.html
+// ═══════════════════════════════════════════════════════════════════════
+const PALETTE = [
+    '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+    '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+    '#aec7e8','#ffbb78','#98df8a','#ff9896','#c5b0d5',
+];
+function clr(i) { return PALETTE[i % PALETTE.length]; }
+
+// Fixed per-phylum colours so they are consistent across all plots
+const phylumColours = {};
+function phylumColour(name) {
+    if (!phylumColours[name]) {
+        phylumColours[name] = clr(Object.keys(phylumColours).length);
+    }
+    return phylumColours[name];
+}
+
+const SITE_COLOURS = {
+    'White Bay':          '#0d6efd',
+    'Ballochmartin Bay':  '#198754',
+    'Farland Point':      '#dc3545',
+    'Combined':           '#6c757d',
+};
+const SITE_NAMES = ['White Bay', 'Ballochmartin Bay', 'Farland Point'];
+
+// ═══════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════
+function fmt(n, dp = 0) {
+    if (n === null || n === undefined) return '—';
+    return dp > 0 ? Number(n).toFixed(dp) : Number(n).toLocaleString();
+}
+
+// Linear regression: returns {m, b, r2}
+function linReg(points) {
+    const n = points.length;
+    if (n < 2) return null;
+    const sx = points.reduce((s, p) => s + p.x, 0);
+    const sy = points.reduce((s, p) => s + p.y, 0);
+    const sxx = points.reduce((s, p) => s + p.x * p.x, 0);
+    const sxy = points.reduce((s, p) => s + p.x * p.y, 0);
+    const syy = points.reduce((s, p) => s + p.y * p.y, 0);
+    const m = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const b = (sy - m * sx) / n;
+    const ss_res = points.reduce((s, p) => { const e = p.y - (m * p.x + b); return s + e * e; }, 0);
+    const ss_tot = syy - sy * sy / n;
+    const r2 = ss_tot > 0 ? 1 - ss_res / ss_tot : 0;
+    return { m, b, r2 };
+}
+
+function regressionLine(reg, points) {
+    const xs = points.map(p => p.x);
+    const xMin = Math.min(...xs), xMax = Math.max(...xs);
+    return [{ x: xMin, y: reg.m * xMin + reg.b }, { x: xMax, y: reg.m * xMax + reg.b }];
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Shared chart defaults
+// ═══════════════════════════════════════════════════════════════════════
+Chart.defaults.font.family = 'system-ui, sans-serif';
+Chart.defaults.font.size   = 11;
+
+// ═══════════════════════════════════════════════════════════════════════
+// §1  Current year summary cards + phylum table + pie
+// ═══════════════════════════════════════════════════════════════════════
+function buildSummary(d) {
+    const s = d.current_summary;
+    document.getElementById('curr-year-heading').textContent = `${s.year} Summary`;
+
+    const cards = [
+        { v: s.total_species, l: 'Species identified' },
+        { v: s.total_idents,  l: 'Identification records' },
+        { v: s.total_phyla,   l: 'Phyla' },
+        { v: s.total_classes, l: 'Classes' },
+        { v: fmt(s.shannon_h, 3), l: "Shannon H′" },
+        { v: fmt(s.pielou_j, 3),  l: "Pielou J′" },
+    ];
+    document.getElementById('summary-cards').innerHTML = cards.map(c => `
+        <div class="col-6 col-sm-4 col-md-2">
+            <div class="stat-card">
+                <div class="value">${c.v}</div>
+                <div class="label">${c.l}</div>
+            </div>
+        </div>
+    `).join('');
+
+    // Assign phylum colours from current year data (sets canonical order)
+    d.current_phyla.forEach(r => phylumColour(r.phylum));
+
+    // Table
+    const tbody = document.getElementById('phylum-table-body');
+    tbody.innerHTML = d.current_phyla.map(r => `
+        <tr>
+            <td style="width:12px;padding-right:0">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${phylumColour(r.phylum)}"></span>
+            </td>
+            <td>${r.phylum}</td>
+            <td class="text-end">${r.species_count}</td>
+            <td class="text-end text-muted">${r.ident_count}</td>
+            <td class="text-end">${(r.proportion * 100).toFixed(1)}%</td>
+        </tr>
+    `).join('');
+
+    // Pie
+    new Chart(document.getElementById('phylum-pie'), {
+        type: 'doughnut',
+        data: {
+            labels: d.current_phyla.map(r => r.phylum),
+            datasets: [{
+                data:            d.current_phyla.map(r => r.species_count),
+                backgroundColor: d.current_phyla.map(r => phylumColour(r.phylum)),
+                borderWidth: 1, borderColor: '#fff',
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed} species (${(ctx.parsed / ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)}%)`,
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §2  Stacked phylum proportions per year + combined
+// ═══════════════════════════════════════════════════════════════════════
+function buildStacked(d) {
+    // Collect all years present
+    const yearSet = [...new Set(d.stacked_by_year.map(r => r.year))].sort((a,b)=>a-b);
+    // All-phyla ordered by combined_phyla
+    const allPhyla = d.combined_phyla.map(r => r.phylum);
+    allPhyla.forEach(p => phylumColour(p)); // ensure colours assigned
+
+    // Build lookup: year → phylum → species_count
+    const byYearPhylum = {};
+    d.stacked_by_year.forEach(r => {
+        if (!byYearPhylum[r.year]) byYearPhylum[r.year] = {};
+        byYearPhylum[r.year][r.phylum] = r.species_count;
+    });
+    // Combined totals
+    const combinedTotals = {};
+    d.combined_phyla.forEach(r => { combinedTotals[r.phylum] = r.species_count; });
+
+    const labels = [...yearSet.map(String), 'All years'];
+    const totalPerCol = [...yearSet.map(y => {
+        return allPhyla.reduce((s, p) => s + (byYearPhylum[y]?.[p] || 0), 0);
+    }), allPhyla.reduce((s, p) => s + (combinedTotals[p] || 0), 0)];
+
+    const datasets = allPhyla.map(phylum => ({
+        label: phylum,
+        backgroundColor: phylumColour(phylum),
+        data: [...yearSet.map(y => {
+            const n = byYearPhylum[y]?.[phylum] || 0;
+            const t = yearSet.reduce((s, yy) => s + (byYearPhylum[yy]?.[phylum] || 0), 0);
+            const tot = totalPerCol[yearSet.indexOf(y)];
+            return tot > 0 ? parseFloat((n / tot).toFixed(4)) : 0;
+        }), (() => {
+            const n = combinedTotals[phylum] || 0;
+            const tot = totalPerCol[totalPerCol.length - 1];
+            return tot > 0 ? parseFloat((n / tot).toFixed(4)) : 0;
+        })()],
+    }));
+
+    // Count phyla per column for annotation
+    const phylaCountPerCol = [...yearSet.map(y =>
+        allPhyla.filter(p => (byYearPhylum[y]?.[p] || 0) > 0).length
+    ), allPhyla.filter(p => (combinedTotals[p] || 0) > 0).length];
+
+    new Chart(document.getElementById('stacked-phylum'), {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 6 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ${(ctx.parsed.y * 100).toFixed(1)}%`,
+                    }
+                },
+                annotation: {
+                    annotations: labels.reduce((obj, lbl, i) => {
+                        obj[`label${i}`] = {
+                            type: 'label',
+                            xValue: lbl,
+                            yValue: 1.04,
+                            content: `${phylaCountPerCol[i]}`,
+                            font: { size: 10, weight: 'bold' },
+                            color: '#333',
+                        };
+                        return obj;
+                    }, {})
+                }
+            },
+            scales: {
+                x: { stacked: true },
+                y: {
+                    stacked: true,
+                    max: 1.1,
+                    ticks: { callback: v => `${(v * 100).toFixed(0)}%` },
+                    title: { display: true, text: 'Proportion of species' }
+                }
+            }
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §3  Richness per year (grouped bars) + Shannon H′ line overlay
+// ═══════════════════════════════════════════════════════════════════════
+function buildRichnessPerYear(d) {
+    const ys = d.year_stats;
+    const labels = ys.map(r => String(r.year));
+
+    new Chart(document.getElementById('richness-per-year'), {
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Phyla',
+                    data: ys.map(r => r.total_phyla),
+                    backgroundColor: '#1f77b4',
+                    yAxisID: 'y',
+                    order: 3,
+                },
+                {
+                    type: 'bar',
+                    label: 'Classes',
+                    data: ys.map(r => r.total_classes),
+                    backgroundColor: '#2ca02c',
+                    yAxisID: 'y',
+                    order: 3,
+                },
+                {
+                    type: 'bar',
+                    label: 'Species',
+                    data: ys.map(r => r.total_species),
+                    backgroundColor: '#ff7f0e',
+                    yAxisID: 'y',
+                    order: 3,
+                },
+                {
+                    type: 'line',
+                    label: "Shannon H′",
+                    data: ys.map(r => r.shannon_h),
+                    borderColor: '#d62728',
+                    backgroundColor: 'transparent',
+                    pointBackgroundColor: '#d62728',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y2',
+                    order: 1,
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                x: { title: { display: true, text: 'Year' } },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Count' },
+                    position: 'left',
+                },
+                y2: {
+                    beginAtZero: true,
+                    title: { display: true, text: "Shannon H′ (nats)" },
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                }
+            }
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §4 + §5  Site diversity charts (generic, reused for non-algae + algae)
+// ═══════════════════════════════════════════════════════════════════════
+function buildSiteDiversity(containerId, siteData, combinedData, showClasses) {
+    const container = document.getElementById(containerId);
+
+    // Gather all years
+    const allYears = [...new Set([
+        ...siteData.map(r => r.year),
+        ...combinedData.map(r => r.year),
+    ])].sort((a, b) => a - b);
+    const labels = allYears.map(String);
+
+    const siteGroups = [...SITE_NAMES, 'Combined'];
+
+    // For each site group, build species + classes datasets
+    const siteSeriesSpecies = {};
+    const siteSeriesClasses = {};
+    const siteSeriesH       = {};
+
+    SITE_NAMES.forEach(site => {
+        siteSeriesSpecies[site] = allYears.map(y => {
+            const r = siteData.find(d => d.year == y && d.site === site);
+            return r ? r.total_species : null;
+        });
+        if (showClasses) {
+            siteSeriesClasses[site] = allYears.map(y => {
+                const r = siteData.find(d => d.year == y && d.site === site);
+                return r ? r.total_classes : null;
+            });
+        }
+        siteSeriesH[site] = allYears.map(y => {
+            const r = siteData.find(d => d.year == y && d.site === site);
+            return r ? r.shannon_h : null;
+        });
+    });
+
+    siteSeriesSpecies['Combined'] = allYears.map(y => {
+        const r = combinedData.find(d => d.year == y);
+        return r ? r.total_species : null;
+    });
+    if (showClasses) {
+        siteSeriesClasses['Combined'] = allYears.map(y => {
+            const r = combinedData.find(d => d.year == y);
+            return r ? r.total_classes : null;
+        });
+    }
+    siteSeriesH['Combined'] = allYears.map(y => {
+        const r = combinedData.find(d => d.year == y);
+        return r ? r.shannon_h : null;
+    });
+
+    // One panel per site-group (4 panels: 3 named sites + combined)
+    const row = document.createElement('div');
+    row.className = 'row g-3';
+    container.appendChild(row);
+
+    siteGroups.forEach(site => {
+        const col = document.createElement('div');
+        col.className = 'col-12 col-lg-6';
+        col.innerHTML = `
+            <div class="panel">
+                <p class="panel-title">${site}</p>
+                <div class="panel-body">
+                    <div class="chart-wrap"><canvas id="canvas-${containerId}-${site.replace(/\s+/g,'_')}"></canvas></div>
+                </div>
+            </div>`;
+        row.appendChild(col);
+
+        // render after DOM insertion
+        requestAnimationFrame(() => {
+            const canvasId = `canvas-${containerId}-${site.replace(/\s+/g,'_')}`;
+            const datasets = [];
+
+            if (showClasses) {
+                datasets.push({
+                    type: 'bar', label: 'Classes',
+                    data: siteSeriesClasses[site],
+                    backgroundColor: SITE_COLOURS[site] + '66',
+                    yAxisID: 'y', order: 2,
+                });
+            }
+            datasets.push({
+                type: 'bar', label: 'Species',
+                data: siteSeriesSpecies[site],
+                backgroundColor: SITE_COLOURS[site],
+                yAxisID: 'y', order: 2,
+            });
+            datasets.push({
+                type: 'line', label: "Shannon H′",
+                data: siteSeriesH[site],
+                borderColor: '#d62728',
+                backgroundColor: 'transparent',
+                pointBackgroundColor: '#d62728',
+                borderWidth: 2, tension: 0.3,
+                yAxisID: 'y2', order: 1,
+                spanGaps: true,
+            });
+
+            new Chart(document.getElementById(canvasId), {
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+                    scales: {
+                        x: { title: { display: true, text: 'Year' } },
+                        y: {
+                            beginAtZero: true,
+                            stacked: false,
+                            title: { display: true, text: 'Count' },
+                            position: 'left',
+                        },
+                        y2: {
+                            beginAtZero: true,
+                            title: { display: true, text: "H′" },
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                        }
+                    }
+                }
+            });
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §6  Annual summary table
+// ═══════════════════════════════════════════════════════════════════════
+function buildAnnualTable(d) {
+    const tbody = document.getElementById('annual-table-body');
+    const rows  = [...d.year_stats].reverse(); // most recent first
+    tbody.innerHTML = rows.map(r => `
+        <tr class="${r.year == d.current_year ? 'current-year-row' : ''}">
+            <td><strong>${r.year}</strong></td>
+            <td class="text-end">${fmt(r.class_size)}</td>
+            <td class="text-end">${r.tide_height != null ? fmt(r.tide_height, 2) + ' m' : '—'}</td>
+            <td>${r.weather || '—'}</td>
+            <td class="text-end">${fmt(r.total_species)}</td>
+            <td class="text-end">${fmt(r.total_idents)}</td>
+            <td class="text-end">${fmt(r.total_phyla)}</td>
+            <td class="text-end">${fmt(r.shannon_h, 3)}</td>
+            <td class="text-end">${fmt(r.pielou_j, 3)}</td>
+        </tr>
+    `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §7  Scatter + regression plots
+// ═══════════════════════════════════════════════════════════════════════
+function scatterPlot(canvasId, ys, xKey, yKey, xLabel, yLabel, currentYear) {
+    const points = ys
+        .filter(r => r[xKey] != null && r[yKey] != null)
+        .map(r => ({ x: +r[xKey], y: +r[yKey], year: r.year }));
+
+    const reg = linReg(points);
+    const regLine = reg ? regressionLine(reg, points) : [];
+
+    new Chart(document.getElementById(canvasId), {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Other years',
+                    data: points.filter(p => p.year != currentYear),
+                    backgroundColor: '#aec7e8',
+                    pointRadius: 5,
+                },
+                {
+                    label: `${currentYear} (current)`,
+                    data: points.filter(p => p.year == currentYear),
+                    backgroundColor: '#d62728',
+                    pointRadius: 8,
+                    pointStyle: 'star',
+                },
+                ...(reg ? [{
+                    label: `Regression (R²=${reg.r2.toFixed(2)})`,
+                    type: 'line',
+                    data: regLine,
+                    borderColor: '#ff7f0e',
+                    borderWidth: 1.5,
+                    borderDash: [4, 3],
+                    pointRadius: 0,
+                    fill: false,
+                }] : []),
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            if (ctx.datasetIndex < 2) {
+                                const p = ctx.raw;
+                                return ` ${p.year}: (${p.x}, ${typeof p.y === 'number' && p.y < 10 ? p.y.toFixed(3) : p.y})`;
+                            }
+                            return null;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: xLabel } },
+                y: { title: { display: true, text: yLabel } },
+            }
+        }
+    });
+}
+
+function buildScatters(d) {
+    const ys = d.year_stats;
+    const cy = d.current_year;
+    scatterPlot('scatter-spp-ids',   ys, 'total_idents', 'total_species', 'Number of identifications', 'Number of species',  cy);
+    scatterPlot('scatter-h-ids',     ys, 'total_idents', 'shannon_h',     'Number of identifications', "Shannon H′",         cy);
+    scatterPlot('scatter-spp-class', ys, 'class_size',   'total_species', 'Class size',                'Number of species',  cy);
+    scatterPlot('scatter-h-class',   ys, 'class_size',   'shannon_h',     'Class size',                "Shannon H′",         cy);
+    scatterPlot('scatter-h-tide',    ys, 'tide_height',  'shannon_h',     'Tide height above chart datum (m)', "Shannon H′", cy);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// §8  Collectors curve
+// ═══════════════════════════════════════════════════════════════════════
+function buildCollectors(d) {
+    const pts = d.collectors;
+    new Chart(document.getElementById('collectors-curve'), {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Cumulative species',
+                    data: pts.map(p => ({ x: p.ident_n, y: p.species })),
+                    borderColor: '#ff7f0e',
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    tension: 0,
+                },
+                {
+                    label: 'Cumulative classes',
+                    data: pts.map(p => ({ x: p.ident_n, y: p.classes })),
+                    borderColor: '#1f77b4',
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    tension: 0,
+                },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: { display: true, text: 'Number of identifications' }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Cumulative count' }
+                }
+            }
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Bootstrap
+// ═══════════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await fetch('api/results.php');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = await res.json();
+        if (d.error) throw new Error(d.error);
+
+        // Pre-seed phylum colour map from combined data (largest dataset)
+        d.combined_phyla.forEach(r => phylumColour(r.phylum));
+
+        buildSummary(d);
+        buildStacked(d);
+        buildRichnessPerYear(d);
+        buildSiteDiversity('site-diversity-panels',  d.site_diversity,       d.site_diversity_combined, true);
+        buildSiteDiversity('algae-diversity-panels',  d.algae_site_diversity, d.algae_combined,          false);
+        buildAnnualTable(d);
+        buildScatters(d);
+        buildCollectors(d);
+
+        document.getElementById('loading-overlay').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+
+    } catch (e) {
+        document.getElementById('loading-overlay').innerHTML =
+            `<div class="alert alert-danger">Failed to load data: ${e.message}</div>`;
+    }
+});
+</script>
+</body>
+</html>
