@@ -42,9 +42,8 @@
         .stat-card .value { font-size:2rem; font-weight:700; color:#0a3d62; line-height:1.1; }
         .stat-card .label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; }
 
-        .chart-wrap { position:relative; height:300px; }
-        .chart-wrap-tall { position:relative; height:400px; }
-        .chart-wrap-sm   { position:relative; height:220px; }
+        /* chart-wrap classes retained for pie chart only */
+        .chart-wrap { position:relative; height:220px; }
 
         table.results-table th {
             font-size:0.7rem; text-transform:uppercase;
@@ -367,7 +366,7 @@ function buildSummary(d) {
 // ═══════════════════════════════════════════════════════════════════════
 function buildStacked(d) {
     // Collect all years present
-    const yearSet = [...new Set(d.stacked_by_year.map(r => r.year))].sort((a,b)=>a-b);
+    const yearSet = [...new Set(d.stacked_by_year.map(r => r.year))].sort((a,b)=>b-a); // reverse order
     // All-phyla ordered by combined_phyla
     const allPhyla = d.combined_phyla.map(r => r.phylum);
     allPhyla.forEach(p => phylumColour(p)); // ensure colours assigned
@@ -382,7 +381,7 @@ function buildStacked(d) {
     const combinedTotals = {};
     d.combined_phyla.forEach(r => { combinedTotals[r.phylum] = r.species_count; });
 
-    const labels = [...yearSet.map(String), 'All years'];
+    const labels = ['All years', ...yearSet.map(String)];
     const totalPerCol = [...yearSet.map(y => {
         return allPhyla.reduce((s, p) => s + (byYearPhylum[y]?.[p] || 0), 0);
     }), allPhyla.reduce((s, p) => s + (combinedTotals[p] || 0), 0)];
@@ -411,7 +410,7 @@ function buildStacked(d) {
         type: 'bar',
         data: { labels, datasets },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
             plugins: {
                 legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 6 } },
                 tooltip: {
@@ -450,7 +449,7 @@ function buildStacked(d) {
 // §3  Richness per year (grouped bars) + Shannon H′ line overlay
 // ═══════════════════════════════════════════════════════════════════════
 function buildRichnessPerYear(d) {
-    const ys = d.year_stats;
+    const ys = [...d.year_stats].reverse(); // reverse order for right-to-left
     const labels = ys.map(r => String(r.year));
 
     new Chart(document.getElementById('richness-per-year'), {
@@ -496,7 +495,7 @@ function buildRichnessPerYear(d) {
             ]
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
             plugins: { legend: { position: 'top' } },
             scales: {
                 x: { title: { display: true, text: 'Year' } },
@@ -518,125 +517,133 @@ function buildRichnessPerYear(d) {
 
 // ═══════════════════════════════════════════════════════════════════════
 // §4 + §5  Site diversity charts (generic, reused for non-algae + algae)
+// Two panels: one grouped chart (3 named sites per year) + one combined
 // ═══════════════════════════════════════════════════════════════════════
 function buildSiteDiversity(containerId, siteData, combinedData, showClasses) {
     const container = document.getElementById(containerId);
 
-    // Gather all years
+    // Gather all years in reverse order
     const allYears = [...new Set([
         ...siteData.map(r => r.year),
         ...combinedData.map(r => r.year),
-    ])].sort((a, b) => a - b);
+    ])].sort((a, b) => b - a);
     const labels = allYears.map(String);
 
-    const siteGroups = [...SITE_NAMES, 'Combined'];
-
-    // For each site group, build species + classes datasets
-    const siteSeriesSpecies = {};
-    const siteSeriesClasses = {};
-    const siteSeriesH       = {};
-
-    SITE_NAMES.forEach(site => {
-        siteSeriesSpecies[site] = allYears.map(y => {
-            const r = siteData.find(d => d.year == y && d.site === site);
-            return r ? r.total_species : null;
-        });
-        if (showClasses) {
-            siteSeriesClasses[site] = allYears.map(y => {
-                const r = siteData.find(d => d.year == y && d.site === site);
-                return r ? r.total_classes : null;
-            });
-        }
-        siteSeriesH[site] = allYears.map(y => {
-            const r = siteData.find(d => d.year == y && d.site === site);
-            return r ? r.shannon_h : null;
-        });
-    });
-
-    siteSeriesSpecies['Combined'] = allYears.map(y => {
-        const r = combinedData.find(d => d.year == y);
-        return r ? r.total_species : null;
-    });
-    if (showClasses) {
-        siteSeriesClasses['Combined'] = allYears.map(y => {
-            const r = combinedData.find(d => d.year == y);
-            return r ? r.total_classes : null;
-        });
-    }
-    siteSeriesH['Combined'] = allYears.map(y => {
-        const r = combinedData.find(d => d.year == y);
-        return r ? r.shannon_h : null;
-    });
-
-    // One panel per site-group (4 panels: 3 named sites + combined)
     const row = document.createElement('div');
     row.className = 'row g-3';
     container.appendChild(row);
 
-    siteGroups.forEach(site => {
-        const col = document.createElement('div');
-        col.className = 'col-12 col-lg-6';
-        col.innerHTML = `
-            <div class="panel">
-                <p class="panel-title">${site}</p>
-                <div class="panel-body">
-                    <div class="chart-wrap"><canvas id="canvas-${containerId}-${site.replace(/\s+/g,'_')}"></canvas></div>
-                </div>
-            </div>`;
-        row.appendChild(col);
+    // ── Panel 1: grouped bars — all 3 named sites per year ──────────────
+    const col1 = document.createElement('div');
+    col1.className = 'col-12';
+    col1.innerHTML = `
+        <div class="panel">
+            <p class="panel-title">White Bay · Ballochmartin Bay · Farland Point — per year</p>
+            <div class="panel-body">
+                <canvas id="canvas-${containerId}-sites"></canvas>
+            </div>
+        </div>`;
+    row.appendChild(col1);
 
-        // render after DOM insertion
-        requestAnimationFrame(() => {
-            const canvasId = `canvas-${containerId}-${site.replace(/\s+/g,'_')}`;
-            const datasets = [];
-
+    requestAnimationFrame(() => {
+        const datasets = [];
+        SITE_NAMES.forEach(site => {
+            const colour = SITE_COLOURS[site];
             if (showClasses) {
                 datasets.push({
-                    type: 'bar', label: 'Classes',
-                    data: siteSeriesClasses[site],
-                    backgroundColor: SITE_COLOURS[site] + '66',
+                    type: 'bar', label: `${site} — Classes`,
+                    data: allYears.map(y => {
+                        const r = siteData.find(d => d.year == y && d.site === site);
+                        return r ? r.total_classes : null;
+                    }),
+                    backgroundColor: colour + '55',
                     yAxisID: 'y', order: 2,
                 });
             }
             datasets.push({
-                type: 'bar', label: 'Species',
-                data: siteSeriesSpecies[site],
-                backgroundColor: SITE_COLOURS[site],
+                type: 'bar', label: `${site} — Species`,
+                data: allYears.map(y => {
+                    const r = siteData.find(d => d.year == y && d.site === site);
+                    return r ? r.total_species : null;
+                }),
+                backgroundColor: colour,
                 yAxisID: 'y', order: 2,
             });
             datasets.push({
-                type: 'line', label: "Shannon H′",
-                data: siteSeriesH[site],
-                borderColor: '#d62728',
-                backgroundColor: 'transparent',
-                pointBackgroundColor: '#d62728',
+                type: 'line', label: `${site} — H′`,
+                data: allYears.map(y => {
+                    const r = siteData.find(d => d.year == y && d.site === site);
+                    return r ? r.shannon_h : null;
+                }),
+                borderColor: colour, backgroundColor: 'transparent',
+                pointBackgroundColor: colour,
                 borderWidth: 2, tension: 0.3,
-                yAxisID: 'y2', order: 1,
-                spanGaps: true,
+                borderDash: [4, 3],
+                yAxisID: 'y2', order: 1, spanGaps: true,
             });
+        });
 
-            new Chart(document.getElementById(canvasId), {
-                data: { labels, datasets },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
-                    scales: {
-                        x: { title: { display: true, text: 'Year' } },
-                        y: {
-                            beginAtZero: true,
-                            stacked: false,
-                            title: { display: true, text: 'Count' },
-                            position: 'left',
-                        },
-                        y2: {
-                            beginAtZero: true,
-                            title: { display: true, text: "H′" },
-                            position: 'right',
-                            grid: { drawOnChartArea: false },
-                        }
-                    }
+        new Chart(document.getElementById(`canvas-${containerId}-sites`), {
+            data: { labels, datasets },
+            options: {
+                responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+                plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 6 } } },
+                scales: {
+                    x: { title: { display: true, text: 'Year' } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
+                    y2: { beginAtZero: true, title: { display: true, text: "H′" }, position: 'right', grid: { drawOnChartArea: false } },
                 }
+            }
+        });
+    });
+
+    // ── Panel 2: combined across all sites ──────────────────────────────
+    const col2 = document.createElement('div');
+    col2.className = 'col-12 col-lg-6';
+    col2.innerHTML = `
+        <div class="panel">
+            <p class="panel-title">Combined (all sites)</p>
+            <div class="panel-body">
+                <canvas id="canvas-${containerId}-Combined"></canvas>
+            </div>
+        </div>`;
+    row.appendChild(col2);
+
+    requestAnimationFrame(() => {
+        const colour = SITE_COLOURS['Combined'];
+        const datasets = [];
+        if (showClasses) {
+            datasets.push({
+                type: 'bar', label: 'Classes',
+                data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.total_classes : null; }),
+                backgroundColor: colour + '55', yAxisID: 'y', order: 2,
             });
+        }
+        datasets.push({
+            type: 'bar', label: 'Species',
+            data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.total_species : null; }),
+            backgroundColor: colour, yAxisID: 'y', order: 2,
+        });
+        datasets.push({
+            type: 'line', label: "Shannon H′",
+            data: allYears.map(y => { const r = combinedData.find(d => d.year == y); return r ? r.shannon_h : null; }),
+            borderColor: '#d62728', backgroundColor: 'transparent',
+            pointBackgroundColor: '#d62728',
+            borderWidth: 2, tension: 0.3,
+            yAxisID: 'y2', order: 1, spanGaps: true,
+        });
+
+        new Chart(document.getElementById(`canvas-${containerId}-Combined`), {
+            data: { labels, datasets },
+            options: {
+                responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
+                plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } } },
+                scales: {
+                    x: { title: { display: true, text: 'Year' } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Count' }, position: 'left' },
+                    y2: { beginAtZero: true, title: { display: true, text: "H′" }, position: 'right', grid: { drawOnChartArea: false } },
+                }
+            }
         });
     });
 }
@@ -703,7 +710,7 @@ function scatterPlot(canvasId, ys, xKey, yKey, xLabel, yLabel, currentYear) {
             ]
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
             plugins: {
                 legend: { position: 'top' },
                 tooltip: {
@@ -766,7 +773,7 @@ function buildCollectors(d) {
             ]
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true, aspectRatio: 16/9, maintainAspectRatio: true,
             plugins: { legend: { position: 'top' } },
             scales: {
                 x: {
