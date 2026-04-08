@@ -413,29 +413,35 @@ function buildStacked(d) {
     d.combined_phyla.forEach(r => { combinedTotals[r.phylum] = r.species_count; });
 
     const labels = ['All years', ...yearSet.map(String)];
-    const totalPerCol = [...yearSet.map(y => {
-        return allPhyla.reduce((s, p) => s + (byYearPhylum[y]?.[p] || 0), 0);
-    }), allPhyla.reduce((s, p) => s + (combinedTotals[p] || 0), 0)];
+    const combinedTotal = allPhyla.reduce((s, p) => s + (combinedTotals[p] || 0), 0);
+    const totalPerCol = [
+        combinedTotal,
+        ...yearSet.map(y => allPhyla.reduce((s, p) => s + (byYearPhylum[y]?.[p] || 0), 0)),
+    ];
 
-    const datasets = allPhyla.map(phylum => ({
+    const datasets = [...allPhyla].reverse().map(phylum => ({
         label: phylum,
         backgroundColor: phylumColour(phylum),
-        data: [...yearSet.map(y => {
-            const n = byYearPhylum[y]?.[phylum] || 0;
-            const t = yearSet.reduce((s, yy) => s + (byYearPhylum[yy]?.[phylum] || 0), 0);
-            const tot = totalPerCol[yearSet.indexOf(y)];
-            return tot > 0 ? parseFloat((n / tot).toFixed(4)) : 0;
-        }), (() => {
-            const n = combinedTotals[phylum] || 0;
-            const tot = totalPerCol[totalPerCol.length - 1];
-            return tot > 0 ? parseFloat((n / tot).toFixed(4)) : 0;
-        })()],
+        data: [
+            // All years combined — first column
+            (() => {
+                const n = combinedTotals[phylum] || 0;
+                return combinedTotal > 0 ? parseFloat((n / combinedTotal).toFixed(4)) : 0;
+            })(),
+            // Individual years in reverse order
+            ...yearSet.map((y, i) => {
+                const n = byYearPhylum[y]?.[phylum] || 0;
+                const tot = totalPerCol[i + 1];
+                return tot > 0 ? parseFloat((n / tot).toFixed(4)) : 0;
+            }),
+        ],
     }));
 
     // Count phyla per column for annotation
-    const phylaCountPerCol = [...yearSet.map(y =>
-        allPhyla.filter(p => (byYearPhylum[y]?.[p] || 0) > 0).length
-    ), allPhyla.filter(p => (combinedTotals[p] || 0) > 0).length];
+    const phylaCountPerCol = [
+        allPhyla.filter(p => (combinedTotals[p] || 0) > 0).length,
+        ...yearSet.map(y => allPhyla.filter(p => (byYearPhylum[y]?.[p] || 0) > 0).length),
+    ];
 
     new Chart(document.getElementById('stacked-phylum'), {
         type: 'bar',
@@ -445,6 +451,7 @@ function buildStacked(d) {
             plugins: {
                 legend: {
                     position: 'right',
+                    reverse: true,
                     labels: { font: { size: 10 }, boxWidth: 10, padding: 8 },
                 },
                 tooltip: {
