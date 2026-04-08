@@ -328,10 +328,30 @@ const API_BASE = 'api';          // relative — same origin
 // ═══════════════════════════════════════════════════════════════════════
 // Colour palette (consistent across chart + table)
 // ═══════════════════════════════════════════════════════════════════════
+// Wes Anderson palette — drawn from Zissou1, Darjeeling1/2, FantasticFox1,
+// Royal1/2, GrandBudapest1/2, Moonrise3, Cavalcanti1, Chevalier1
 const PALETTE = [
-    '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
-    '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
-    '#aec7e8','#ffbb78','#98df8a','#ff9896','#c5b0d5',
+    '#3B9AB2', // Zissou blue
+    '#E1AF00', // Zissou gold
+    '#F21A00', // Zissou red
+    '#00A08A', // Darjeeling teal
+    '#F98400', // Darjeeling orange
+    '#5BBCD6', // Darjeeling sky
+    '#DD8D29', // FantasticFox amber
+    '#46ACC8', // FantasticFox steel
+    '#B40F20', // FantasticFox crimson
+    '#E2D200', // FantasticFox yellow
+    '#C93312', // Royal red
+    '#899DA4', // Royal slate
+    '#DC863B', // Royal ochre
+    '#9A8822', // Royal olive
+    '#74A089', // Royal sage
+    '#F1BB7B', // GrandBudapest peach
+    '#FD6467', // GrandBudapest rose
+    '#85D4E3', // Moonrise aqua
+    '#FAD77B', // Moonrise straw
+    '#972D15', // Cavalcanti rust
+    '#446455', // Chevalier pine
 ];
 function colourFor(index) { return PALETTE[index % PALETTE.length]; }
 
