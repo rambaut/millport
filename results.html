@@ -800,7 +800,7 @@ function buildScatters(d) {
     document.getElementById('scatter-h-ids-title').textContent   = `${dl} vs Identifications`;
     document.getElementById('scatter-h-class-title').textContent = `${dl} vs Class size`;
     document.getElementById('scatter-h-tide-title').textContent  = `${dl} vs Tide height above chart datum`;
-    document.getElementById('h-col-header').textContent          = LOG_DIVERSITY ? 'H\u2032' : 'N\u2081';
+    document.getElementById('h-col-header').textContent          = logDiversity() ? 'H\u2032' : 'N\u2081';
     // Update panel titles with correct label
     document.getElementById('scatter-h-ids-title').textContent   = `${hLabel()} vs Identifications`;
     document.getElementById('scatter-h-class-title').textContent = `${hLabel()} vs Class size`;
