@@ -218,20 +218,14 @@
                 <p class="panel-title"><i class="bi bi-bar-chart-line me-1"></i>Shannon Diversity (species per phylum)</p>
                 <div class="panel-body">
                     <div class="row g-3">
-                        <div class="col-6">
+                        <div class="col-12">
                             <div class="diversity-badge">
                                 <span class="dval" id="shannon-h">—</span>
                                 <span class="dsub">H′ (nats)</span>
                             </div>
                             <div class="text-muted" style="font-size:0.7rem;">Shannon entropy</div>
                         </div>
-                        <div class="col-6">
-                            <div class="diversity-badge">
-                                <span class="dval" id="pielou-j">—</span>
-                                <span class="dsub">J′</span>
-                            </div>
-                            <div class="text-muted" style="font-size:0.7rem;">Pielou's evenness</div>
-                        </div>
+
                     </div>
                 </div>
             </div>
@@ -412,13 +406,10 @@ async function loadDiversity() {
     const classes = new Set(data.by_class.map(r => r.class));
     document.getElementById('stat-classes').textContent = classes.size;
 
-    // Shannon H′ and Pielou J′ — computed over species-per-phylum
+    // Shannon H′ — computed over species-per-phylum
     const counts = data.by_phylum.map(r => r.species_count);
     const H = shannon(counts);
-    const S = data.by_phylum.length;
-    const J = S > 1 ? H / Math.log(S) : 1;
     document.getElementById('shannon-h').textContent = H.toFixed(3);
-    document.getElementById('pielou-j').textContent  = J.toFixed(3);
 
     // Pie chart
     renderPhylumChart(data.by_phylum);

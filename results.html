@@ -174,7 +174,6 @@
                         <th class="text-end">IDs</th>
                         <th class="text-end">Phyla</th>
                         <th class="text-end">H′</th>
-                        <th class="text-end">J′</th>
                     </tr></thead>
                     <tbody id="annual-table-body"></tbody>
                 </table>
@@ -308,7 +307,6 @@ function buildSummary(d) {
         { v: s.total_phyla,   l: 'Phyla' },
         { v: s.total_classes, l: 'Classes' },
         { v: fmt(s.shannon_h, 3), l: "Shannon H′" },
-        { v: fmt(s.pielou_j, 3),  l: "Pielou J′" },
     ];
     document.getElementById('summary-cards').innerHTML = cards.map(c => `
         <div class="col-6 col-sm-4 col-md-2">
@@ -664,7 +662,6 @@ function buildAnnualTable(d) {
             <td class="text-end">${fmt(r.total_idents)}</td>
             <td class="text-end">${fmt(r.total_phyla)}</td>
             <td class="text-end">${fmt(r.shannon_h, 3)}</td>
-            <td class="text-end">${fmt(r.pielou_j, 3)}</td>
         </tr>
     `).join('');
 }
